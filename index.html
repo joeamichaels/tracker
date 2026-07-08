@@ -98,17 +98,35 @@
   .goal-body { padding: 10px 6px 6px; }
 
   /* CATEGORY */
+  .cat-block { border-radius: 8px; }
+  .cat-block.dragging { opacity: 0.9; box-shadow: 0 10px 28px rgba(0,0,0,0.16); background: var(--card); }
+  .cat-label-row {
+    display: flex; align-items: center; gap: 4px;
+    margin-top: 10px;
+  }
+  .cat-block:first-child .cat-label-row { margin-top: 0; }
   .cat-label {
     font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
-    color: var(--muted); padding: 0 10px; margin-bottom: 2px; margin-top: 10px;
+    color: var(--muted); padding: 0 6px 0 4px; margin-bottom: 2px;
   }
-  .cat-label:first-child { margin-top: 0; }
+
+  /* DRAG HANDLES */
+  .drag-handle {
+    flex-shrink: 0; background: none; border: none; cursor: grab;
+    color: var(--subtle); opacity: 0.45; padding: 2px 4px;
+    display: flex; align-items: center; justify-content: center;
+    touch-action: none; font-size: 13px; line-height: 1;
+  }
+  .drag-handle:active { cursor: grabbing; opacity: 0.9; }
+  .cat-drag-handle { padding-left: 8px; }
+  .task-drag-handle { margin-top: 2px; }
 
   /* TASK ROW */
   .task-row {
-    display: flex; align-items: flex-start; gap: 10px;
-    padding: 8px 10px; border-radius: 6px;
+    display: flex; align-items: flex-start; gap: 6px;
+    padding: 8px 10px; border-radius: 6px; background: var(--card);
   }
+  .task-row.dragging { box-shadow: 0 10px 28px rgba(0,0,0,0.16); border: 1px solid var(--border); }
   .task-check {
     flex-shrink: 0; margin-top: 2px; width: 20px; height: 20px; border-radius: 4px;
     border: 2px solid #D1D5DB; background: #fff; cursor: pointer;
@@ -119,13 +137,29 @@
   .task-content { flex: 1; min-width: 0; }
   .task-text {
     font-size: 13.5px; line-height: 1.4; margin-bottom: 6px;
-    color: var(--text); word-break: break-word;
+    color: var(--text); word-break: break-word; cursor: text;
   }
   .task-text.done { color: var(--subtle); text-decoration: line-through; }
-  .task-remove {
+  .task-edit-row { margin-bottom: 6px; }
+  .task-edit-input {
+    width: 100%; font-size: 13.5px; font-family: inherit; color: var(--text);
+    border: 1.5px solid var(--goal-color, #2563EB); border-radius: 5px;
+    padding: 3px 6px; outline: none; background: #fff;
+  }
+  .task-edit, .task-remove {
     flex-shrink: 0; background: none; border: none; cursor: pointer;
     color: var(--subtle); padding: 4px; display: flex; align-items: center;
     opacity: 0.5; margin-top: 0;
+  }
+  .task-edit:hover, .task-remove:hover { opacity: 1; }
+
+  /* DRAG PLACEHOLDER */
+  .drag-placeholder {
+    background: rgba(37,99,235,0.06);
+    border: 1.5px dashed var(--border-mid, #D1D5DB);
+    border-radius: 6px;
+    margin: 2px 0;
+    box-sizing: border-box;
   }
 
   /* DAY PICKER */
@@ -183,6 +217,21 @@
   /* CHECK ICON */
   .check-icon { display: none; }
   .task-check.done .check-icon { display: block; }
+
+  /* TOAST */
+  #toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 16px);
+    background: #111827; color: #fff; padding: 10px 12px 10px 16px; border-radius: 8px;
+    display: flex; align-items: center; gap: 14px; font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25); opacity: 0; pointer-events: none;
+    transition: opacity 0.15s, transform 0.15s; z-index: 200; max-width: calc(100vw - 32px);
+  }
+  #toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  .toast-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .toast-undo {
+    background: none; border: none; color: #60A5FA; font-weight: 700; font-size: 13px;
+    cursor: pointer; font-family: inherit; flex-shrink: 0; padding: 2px 4px;
+  }
 </style>
 </head>
 <body>
@@ -212,6 +261,8 @@
   </div>
 </div>
 
+<div id="toast"></div>
+
 <script>
 const STORAGE_KEY = 'weekly-tracker-v1';
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -222,13 +273,13 @@ const INITIAL_GOALS = [
     subtitle:'while traveling freely', color:'#2563EB', accent:'#DBEAFE',
     categories:[
       { id:'c1', name:'Bills', tasks:[
-        {id:'t1',text:'Call AT&T and Xfinity for phone bill',done:false,day:null},
-        {id:'t2',text:'Submit claims to KP',done:false,day:null}
+        {id:'t1',text:'Call AT&T and Xfinity for phone bill',done:false,days:[]},
+        {id:'t2',text:'Submit claims to KP',done:false,days:[]}
       ]},
       { id:'c2', name:'Bachelor Party', tasks:[
-        {id:'t3',text:'Review house options for Cartagena',done:false,day:null},
-        {id:'t4',text:'Book Cartagena flight',done:false,day:null},
-        {id:'t5',text:'Buy suit',done:false,day:null}
+        {id:'t3',text:'Review house options for Cartagena',done:false,days:[]},
+        {id:'t4',text:'Book Cartagena flight',done:false,days:[]},
+        {id:'t5',text:'Buy suit',done:false,days:[]}
       ]}
     ]
   },
@@ -237,12 +288,12 @@ const INITIAL_GOALS = [
     subtitle:'and build skills', color:'#059669', accent:'#D1FAE5',
     categories:[
       { id:'c3', name:'Health', tasks:[
-        {id:'t6',text:'Gym: back, arms, abs',done:false,day:null},
-        {id:'t7',text:'Restart tracking macros',done:false,day:null}
+        {id:'t6',text:'Gym: back, arms, abs',done:false,days:[]},
+        {id:'t7',text:'Restart tracking macros',done:false,days:[]}
       ]},
       { id:'c4', name:'Study', tasks:[
-        {id:'t8',text:'Read first Seneca essay',done:false,day:null},
-        {id:'t9',text:'Schedule Spanish class',done:false,day:null}
+        {id:'t8',text:'Read first Seneca essay',done:false,days:[]},
+        {id:'t9',text:'Schedule Spanish class',done:false,days:[]}
       ]}
     ]
   },
@@ -251,18 +302,18 @@ const INITIAL_GOALS = [
     subtitle:'', color:'#7C3AED', accent:'#EDE9FE',
     categories:[
       { id:'c5', name:'Job Applications', tasks:[
-        {id:'t10',text:'Apply to National Security Director, Microsoft',done:false,day:null},
-        {id:'t11',text:'Research other job search platforms; use AI',done:false,day:null}
+        {id:'t10',text:'Apply to National Security Director, Microsoft',done:false,days:[]},
+        {id:'t11',text:'Research other job search platforms; use AI',done:false,days:[]}
       ]},
       { id:'c6', name:'Professional Development', tasks:[
-        {id:'t12',text:'Apply to Bucerius Global Governance Program, Aug 7–17, Hamburg',done:true,day:null},
-        {id:'t13',text:'Register for Atlantic-Brücke Young Leaders Conference, Aug 8–14, Denver',done:true,day:null},
-        {id:'t14',text:'Draft leave request for Madeline review',done:false,day:null}
+        {id:'t12',text:'Apply to Bucerius Global Governance Program, Aug 7–17, Hamburg',done:true,days:[]},
+        {id:'t13',text:'Register for Atlantic-Brücke Young Leaders Conference, Aug 8–14, Denver',done:true,days:[]},
+        {id:'t14',text:'Draft leave request for Madeline review',done:false,days:[]}
       ]},
       { id:'c7', name:'USNATO TDY', tasks:[
-        {id:'t15',text:'Email Leigh Ann',done:true,day:null},
-        {id:'t16',text:'Email Alton',done:true,day:null},
-        {id:'t17',text:'Meet with Dot',done:false,day:null}
+        {id:'t15',text:'Email Leigh Ann',done:true,days:[]},
+        {id:'t16',text:'Email Alton',done:true,days:[]},
+        {id:'t17',text:'Meet with Dot',done:false,days:[]}
       ]}
     ]
   },
@@ -271,16 +322,16 @@ const INITIAL_GOALS = [
     subtitle:'', color:'#DC2626', accent:'#FEE2E2',
     categories:[
       { id:'c8', name:'Therapy', tasks:[
-        {id:'t18',text:'Complete relationship vision worksheet',done:false,day:null},
-        {id:'t19',text:'Call KP for quote for Saturday session',done:false,day:null}
+        {id:'t18',text:'Complete relationship vision worksheet',done:false,days:[]},
+        {id:'t19',text:'Call KP for quote for Saturday session',done:false,days:[]}
       ]},
       { id:'c9', name:'Apartment Move-In', tasks:[
-        {id:'t20',text:'Ask to use Bene car for move-in',done:false,day:null}
+        {id:'t20',text:'Ask to use Bene car for move-in',done:false,days:[]}
       ]},
       { id:'c10', name:'Life Planning', tasks:[
-        {id:'t21',text:'Help create job tracker with Borja on Claude',done:false,day:null},
-        {id:'t22',text:'Plan summer leave with Borja',done:false,day:null},
-        {id:'t23',text:'Create budget with Borja',done:false,day:null}
+        {id:'t21',text:'Help create job tracker with Borja on Claude',done:false,days:[]},
+        {id:'t22',text:'Plan summer leave with Borja',done:false,days:[]},
+        {id:'t23',text:'Create budget with Borja',done:false,days:[]}
       ]}
     ]
   }
@@ -290,17 +341,38 @@ const INITIAL_GOALS = [
 let goals = [];
 let currentView = 'goals';
 let selectedDay = DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
-let nextId = 200;
-const uid = () => `x${nextId++}`;
 let saveTimer = null;
 
+// Collision-proof id: not a session-local counter, so ids stay unique even
+// across page reloads (a plain incrementing counter reset to the same
+// starting value every reload, which produced duplicate ids and let edits
+// on one goal's task silently apply to an unrelated task sharing that id).
+function uid(prefix) {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
 // ── Persistence ────────────────────────────────────────────────────────────
+// Older saves may have a single `day` field instead of a `days` array
+// (single-day scheduling); normalize on load so both shapes work.
+function migrateTask(t) {
+  if (!Array.isArray(t.days)) {
+    t.days = t.day ? [t.day] : [];
+  }
+  delete t.day;
+  return t;
+}
+
+function normalize(loadedGoals) {
+  loadedGoals.forEach(g => g.categories.forEach(c => c.tasks.forEach(migrateTask)));
+  return loadedGoals;
+}
+
 function load() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) { goals = JSON.parse(raw); return; }
+    if (raw) { goals = normalize(JSON.parse(raw)); return; }
   } catch(e) {}
-  goals = JSON.parse(JSON.stringify(INITIAL_GOALS));
+  goals = normalize(JSON.parse(JSON.stringify(INITIAL_GOALS)));
 }
 
 function scheduleSave() {
@@ -342,13 +414,48 @@ function findTask(taskId) {
   for (const g of goals) for (const c of g.categories) for (const t of c.tasks) if (t.id===taskId) return t;
   return null;
 }
-function findGoalByTask(taskId) {
-  for (const g of goals) for (const c of g.categories) if (c.tasks.find(t=>t.id===taskId)) return g;
-  return null;
-}
 function findCatByTask(taskId) {
   for (const g of goals) for (const c of g.categories) if (c.tasks.find(t=>t.id===taskId)) return c;
   return null;
+}
+
+// A tiny helper that wires up an <input> used for inline add/edit so that
+// Enter commits, Escape cancels, and blur commits (for taps outside the
+// field on mobile) — while guaranteeing only ONE of commit/cancel ever
+// fires. Without this guard, pressing Escape still let the delayed blur
+// handler fire afterwards and silently re-commit the value.
+function wireInlineEditor(input, { onCommit, onCancel }) {
+  let settled = false;
+  const commit = () => {
+    if (settled) return;
+    settled = true;
+    onCommit(input.value);
+  };
+  const cancel = () => {
+    if (settled) return;
+    settled = true;
+    onCancel();
+  };
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+  });
+  input.addEventListener('blur', () => setTimeout(commit, 150));
+}
+
+// ── Toast (undo) ───────────────────────────────────────────────────────────
+let toastTimer = null;
+function showUndoToast(message, onUndo) {
+  const el = document.getElementById('toast');
+  clearTimeout(toastTimer);
+  el.innerHTML = `<span class="toast-text">${escHtml(message)}</span><button class="toast-undo" type="button">Undo</button>`;
+  el.classList.add('show');
+  el.querySelector('.toast-undo').onclick = () => {
+    el.classList.remove('show');
+    clearTimeout(toastTimer);
+    onUndo();
+  };
+  toastTimer = setTimeout(() => el.classList.remove('show'), 5000);
 }
 
 // ── Actions ────────────────────────────────────────────────────────────────
@@ -362,10 +469,17 @@ function toggleTask(taskId) {
 
 function removeTask(taskId) {
   const c = findCatByTask(taskId);
-  if (!c) return;
-  c.tasks = c.tasks.filter(t => t.id !== taskId);
+  const t = findTask(taskId);
+  if (!c || !t) return;
+  const index = c.tasks.findIndex(x => x.id === taskId);
+  c.tasks.splice(index, 1);
   scheduleSave();
   render();
+  showUndoToast(`Removed "${t.text}"`, () => {
+    c.tasks.splice(Math.min(index, c.tasks.length), 0, t);
+    scheduleSave();
+    render();
+  });
 }
 
 function addTask(goalId, catId, text) {
@@ -373,25 +487,58 @@ function addTask(goalId, catId, text) {
   if (!g) return;
   const c = g.categories.find(c=>c.id===catId);
   if (!c) return;
-  c.tasks.push({id:uid(), text, done:false, day:null});
+  c.tasks.push({id:uid('t'), text, done:false, days:[]});
   scheduleSave();
   render();
 }
 
-function setTaskDay(taskId, day) {
+function editTaskText(taskId, text) {
   const t = findTask(taskId);
   if (!t) return;
-  t.day = t.day === day ? null : day;
+  t.text = text;
   scheduleSave();
   render();
 }
 
-function unscheduleTask(taskId) {
+function toggleTaskDay(taskId, day) {
   const t = findTask(taskId);
   if (!t) return;
-  t.day = null;
+  const idx = t.days.indexOf(day);
+  if (idx >= 0) t.days.splice(idx, 1);
+  else t.days.push(day);
   scheduleSave();
   render();
+}
+
+function unscheduleTaskDay(taskId, day) {
+  const t = findTask(taskId);
+  if (!t) return;
+  const idx = t.days.indexOf(day);
+  if (idx >= 0) t.days.splice(idx, 1);
+  scheduleSave();
+  render();
+}
+
+function reorderTasks(catId, orderedTaskIds) {
+  const cat = goals.flatMap(g => g.categories).find(c => c.id === catId);
+  if (!cat) return;
+  const byId = new Map(cat.tasks.map(t => [t.id, t]));
+  const reordered = orderedTaskIds.map(id => byId.get(id)).filter(Boolean);
+  if (reordered.length === cat.tasks.length) {
+    cat.tasks = reordered;
+    scheduleSave();
+  }
+}
+
+function reorderCategories(goalId, orderedCatIds) {
+  const g = goals.find(g => g.id === goalId);
+  if (!g) return;
+  const byId = new Map(g.categories.map(c => [c.id, c]));
+  const reordered = orderedCatIds.map(id => byId.get(id)).filter(Boolean);
+  if (reordered.length === g.categories.length) {
+    g.categories = reordered;
+    scheduleSave();
+  }
 }
 
 // ── View switching ─────────────────────────────────────────────────────────
@@ -412,21 +559,29 @@ function checkSVG() {
   </svg>`;
 }
 
+function editSVG() {
+  return `<svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+    <path d="M9.5 1.5L12.5 4.5L4.5 12.5L1 13L1.5 9.5L9.5 1.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/>
+  </svg>`;
+}
+
 function renderDayPicker(task, goalColor) {
   return `<div class="day-picker">
-    ${DAYS.map(d => `<button class="day-btn${task.day===d?' active':''}" style="--goal-color:${goalColor}"
-      onclick="setTaskDay('${task.id}','${d}')">${d}</button>`).join('')}
+    ${DAYS.map(d => `<button class="day-btn${task.days.includes(d)?' active':''}" style="--goal-color:${goalColor}"
+      onclick="toggleTaskDay('${task.id}','${d}')">${d}</button>`).join('')}
   </div>`;
 }
 
 function renderTask(task, goalColor) {
-  return `<div class="task-row">
+  return `<div class="task-row" data-id="${task.id}">
+    <button class="drag-handle task-drag-handle" aria-label="Reorder task">⠿</button>
     <button class="task-check${task.done?' done':''}" style="--goal-color:${goalColor}"
       onclick="toggleTask('${task.id}')">${checkSVG()}</button>
     <div class="task-content">
-      <div class="task-text${task.done?' done':''}">${escHtml(task.text)}</div>
+      <div class="task-text${task.done?' done':''}" ondblclick="activateEditTask(this,'${task.id}')">${escHtml(task.text)}</div>
       ${renderDayPicker(task, goalColor)}
     </div>
+    <button class="task-edit" onclick="activateEditTask(this,'${task.id}')" aria-label="Edit task">${editSVG()}</button>
     <button class="task-remove" onclick="removeTask('${task.id}')" aria-label="Remove task">
       <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
         <path d="M2 2L12 12M12 2L2 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
@@ -435,11 +590,33 @@ function renderTask(task, goalColor) {
   </div>`;
 }
 
+function activateEditTask(el, taskId) {
+  const task = findTask(taskId);
+  if (!task) return;
+  const row = el.closest('.task-row');
+  const textEl = row.querySelector('.task-text');
+  const wrapper = document.createElement('div');
+  wrapper.className = 'task-edit-row';
+  wrapper.innerHTML = `<input class="task-edit-input" autocomplete="off">`;
+  textEl.replaceWith(wrapper);
+  const input = wrapper.querySelector('input');
+  input.value = task.text;
+  input.focus();
+  input.select();
+  wireInlineEditor(input, {
+    onCommit: (value) => {
+      const text = value.trim();
+      if (text) editTaskText(taskId, text);
+      else render();
+    },
+    onCancel: () => render()
+  });
+}
+
 function renderAddTask(goalId, catId, goalColor) {
-  const inputId = `add-${catId}`;
   return `<button class="add-task-btn" style="color:var(--subtle)"
     onmouseenter="this.style.color='${goalColor}'" onmouseleave="this.style.color=''"
-    onclick="activateAddTask('${goalId}','${catId}','${goalColor}','${inputId}')">
+    onclick="activateAddTask(this,'${goalId}','${catId}')">
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
       <path d="M6 1V11M1 6H11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
     </svg>
@@ -447,27 +624,23 @@ function renderAddTask(goalId, catId, goalColor) {
   </button>`;
 }
 
-function activateAddTask(goalId, catId, goalColor, inputId) {
-  const btn = document.querySelector(`[onclick*="${inputId}"]`);
-  if (!btn) return;
+function activateAddTask(btn, goalId, catId) {
   const parent = btn.parentElement;
   const wrapper = document.createElement('div');
   wrapper.className = 'add-task-row';
   wrapper.innerHTML = `<div class="add-task-placeholder"></div>
-    <input class="add-task-input" id="${inputId}" placeholder="New task…" autocomplete="off">`;
+    <input class="add-task-input" placeholder="New task…" autocomplete="off">`;
   parent.replaceChild(wrapper, btn);
-  const input = document.getElementById(inputId);
+  const input = wrapper.querySelector('input');
   input.focus();
-  const commit = () => {
-    const text = input.value.trim();
-    if (text) addTask(goalId, catId, text);
-    else render(); // restore button
-  };
-  input.addEventListener('keydown', e => {
-    if (e.key==='Enter') { e.preventDefault(); commit(); }
-    if (e.key==='Escape') render();
+  wireInlineEditor(input, {
+    onCommit: (value) => {
+      const text = value.trim();
+      if (text) addTask(goalId, catId, text);
+      else render();
+    },
+    onCancel: () => render()
   });
-  input.addEventListener('blur', () => setTimeout(commit, 150));
 }
 
 function renderGoalCard(goal) {
@@ -476,9 +649,16 @@ function renderGoalCard(goal) {
   const pct = tasks.length===0 ? 0 : Math.round(done/tasks.length*100);
 
   const catsHtml = goal.categories.map(cat => `
-    <div class="cat-label">${escHtml(cat.name)}</div>
-    ${cat.tasks.map(t=>renderTask(t,goal.color)).join('')}
-    ${renderAddTask(goal.id, cat.id, goal.color)}
+    <div class="cat-block" data-id="${cat.id}">
+      <div class="cat-label-row">
+        <button class="drag-handle cat-drag-handle" aria-label="Reorder category">⠿</button>
+        <div class="cat-label">${escHtml(cat.name)}</div>
+      </div>
+      <div class="task-list" data-cat-id="${cat.id}">
+        ${cat.tasks.map(t=>renderTask(t,goal.color)).join('')}
+      </div>
+      ${renderAddTask(goal.id, cat.id, goal.color)}
+    </div>
   `).join('');
 
   return `<div class="goal-card">
@@ -498,7 +678,9 @@ function renderGoalCard(goal) {
         <div class="progress-bar-fill" style="width:${pct}%;background:${goal.color}"></div>
       </div>
     </div>
-    <div class="goal-body">${catsHtml}</div>
+    <div class="goal-body">
+      <div class="cat-list" data-goal-id="${goal.id}">${catsHtml}</div>
+    </div>
   </div>`;
 }
 
@@ -513,7 +695,7 @@ function renderDayView() {
   const container = document.getElementById('day-tasks');
   const items = [];
   goals.forEach(g => g.categories.forEach(c => c.tasks.forEach(t => {
-    if (t.day===selectedDay) items.push({...t, goalTitle:g.title, goalColor:g.color, goalId:g.id});
+    if (t.days.includes(selectedDay)) items.push({...t, goalTitle:g.title, goalColor:g.color, goalId:g.id});
   })));
 
   if (items.length===0) {
@@ -529,7 +711,7 @@ function renderDayView() {
         <div class="task-text${t.done?' done':''}" style="margin-bottom:2px">${escHtml(t.text)}</div>
         <div class="day-task-goal-label" style="color:${t.goalColor}">${escHtml(t.goalTitle)}</div>
       </div>
-      <button class="day-task-unschedule" onclick="unscheduleTask('${t.id}')" title="Remove from this day">✕</button>
+      <button class="day-task-unschedule" onclick="unscheduleTaskDay('${t.id}','${selectedDay}')" title="Remove from this day">✕</button>
     </div>
   `).join('');
 }
@@ -542,6 +724,92 @@ function selectDay(d) {
 function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+
+// ── Drag-and-drop reordering ─────────────────────────────────────────────
+// Uses Pointer Events (not the HTML5 drag-and-drop API) because native
+// drag-and-drop isn't supported on iOS Safari — Pointer Events work
+// identically for mouse, touch, and pen, which matters since this app is
+// meant to be used as an iPhone home-screen app.
+function startDrag(startEvent, item, container, itemSelector, onCommit) {
+  startEvent.preventDefault();
+  const pointerId = startEvent.pointerId;
+  const rect = item.getBoundingClientRect();
+  const offsetX = startEvent.clientX - rect.left;
+  const offsetY = startEvent.clientY - rect.top;
+
+  const placeholder = document.createElement('div');
+  placeholder.className = 'drag-placeholder';
+  placeholder.style.height = rect.height + 'px';
+  item.parentNode.insertBefore(placeholder, item);
+
+  item.classList.add('dragging');
+  item.style.width = rect.width + 'px';
+  item.style.position = 'fixed';
+  item.style.left = rect.left + 'px';
+  item.style.top = rect.top + 'px';
+  item.style.zIndex = '1000';
+  item.style.pointerEvents = 'none';
+  document.body.appendChild(item);
+
+  try { item.setPointerCapture(pointerId); } catch(e) {}
+
+  function siblings() {
+    return Array.from(container.querySelectorAll(':scope > ' + itemSelector));
+  }
+
+  function onMove(e) {
+    if (e.pointerId !== pointerId) return;
+    item.style.left = (e.clientX - offsetX) + 'px';
+    item.style.top = (e.clientY - offsetY) + 'px';
+    const y = e.clientY;
+    let target = null;
+    for (const sib of siblings()) {
+      const r = sib.getBoundingClientRect();
+      if (y < r.top + r.height / 2) { target = sib; break; }
+    }
+    if (target) container.insertBefore(placeholder, target);
+    else container.appendChild(placeholder);
+  }
+
+  function onUp(e) {
+    if (e.pointerId !== pointerId) return;
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+    container.insertBefore(item, placeholder);
+    placeholder.remove();
+    item.classList.remove('dragging');
+    item.style.position = '';
+    item.style.left = '';
+    item.style.top = '';
+    item.style.width = '';
+    item.style.zIndex = '';
+    item.style.pointerEvents = '';
+    const ids = siblings().map(el => el.dataset.id);
+    onCommit(ids);
+    render();
+  }
+
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+  document.addEventListener('pointercancel', onUp);
+}
+
+document.addEventListener('pointerdown', (e) => {
+  const taskHandle = e.target.closest('.task-drag-handle');
+  if (taskHandle) {
+    const row = taskHandle.closest('.task-row');
+    const list = row.closest('.task-list');
+    startDrag(e, row, list, '.task-row', (ids) => reorderTasks(list.dataset.catId, ids));
+    return;
+  }
+  const catHandle = e.target.closest('.cat-drag-handle');
+  if (catHandle) {
+    const block = catHandle.closest('.cat-block');
+    const list = block.closest('.cat-list');
+    startDrag(e, block, list, '.cat-block', (ids) => reorderCategories(list.dataset.goalId, ids));
+  }
+});
 
 // ── Main render ────────────────────────────────────────────────────────────
 function render() {
