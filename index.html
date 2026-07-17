@@ -98,17 +98,30 @@
   .goal-body { padding: 10px 6px 6px; }
 
   /* CATEGORY */
-  .cat-block { border-radius: 8px; }
+  .cat-block { border-radius: 8px; padding-top: 1px; }
   .cat-block.dragging { opacity: 0.9; box-shadow: 0 10px 28px rgba(0,0,0,0.16); background: var(--card); }
   .cat-label-row {
-    display: flex; align-items: center; gap: 4px;
+    display: flex; align-items: center; gap: 2px;
     margin-top: 10px;
   }
   .cat-block:first-child .cat-label-row { margin-top: 0; }
   .cat-label {
+    flex: 1; min-width: 0;
     font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
     color: var(--muted); padding: 0 6px 0 4px; margin-bottom: 2px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: text;
   }
+  .cat-name-edit { flex: 1; min-width: 0; }
+  .cat-name-input {
+    width: 100%; font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+    font-family: inherit; color: var(--text); border: 1.5px solid var(--goal-color, #2563EB);
+    border-radius: 4px; padding: 2px 6px; outline: none; background: #fff;
+  }
+  .cat-rename, .cat-remove {
+    flex-shrink: 0; background: none; border: none; cursor: pointer;
+    color: var(--subtle); opacity: 0.4; padding: 3px; display: flex; align-items: center;
+  }
+  .cat-rename:hover, .cat-remove:hover { opacity: 1; }
 
   /* DRAG HANDLES */
   .drag-handle {
@@ -160,6 +173,36 @@
     border-radius: 6px;
     margin: 2px 0;
     box-sizing: border-box;
+  }
+
+  /* EMPTY LIST HINT */
+  .task-list { min-height: 4px; }
+  .task-list-empty-hint {
+    font-size: 11.5px; color: var(--subtle); padding: 10px; text-align: center;
+    border: 1.5px dashed var(--border); border-radius: 6px; margin: 4px 4px 6px;
+  }
+
+  /* ADD SUBSECTION */
+  .add-cat-btn {
+    display: flex; align-items: center; gap: 6px; background: none; border: none;
+    cursor: pointer; color: var(--subtle); font-size: 12px; font-weight: 600;
+    font-family: inherit; width: 100%; text-align: left; padding: 8px 10px;
+    border-radius: 6px; margin-top: 8px; border-top: 1px dashed var(--border); transition: color 0.12s;
+  }
+  .add-cat-btn:hover { color: var(--text); }
+  .add-cat-row { padding: 6px 10px; margin-top: 8px; }
+  .add-cat-input {
+    width: 100%; font-size: 12.5px; font-family: inherit; color: var(--text);
+    border: 1.5px solid var(--border-mid, #D1D5DB); border-radius: 5px;
+    padding: 4px 8px; outline: none; background: #fff;
+  }
+
+  /* TRACKING SECTION */
+  .tracking-block { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--border); }
+  .tracking-label-row { display: flex; align-items: center; padding: 0 10px; margin-bottom: 2px; }
+  .tracking-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--muted); display: flex; align-items: center; gap: 5px;
   }
 
   /* DAY PICKER */
@@ -267,10 +310,13 @@
 const STORAGE_KEY = 'weekly-tracker-v1';
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
+function emptyTracking() { return { id: 'tracking', name: 'Tracking', tasks: [] }; }
+
 const INITIAL_GOALS = [
   {
     id:'g1', label:'GOAL 1', title:'Increase Net Worth 5% Monthly',
     subtitle:'while traveling freely', color:'#2563EB', accent:'#DBEAFE',
+    tracking: emptyTracking(),
     categories:[
       { id:'c1', name:'Bills', tasks:[
         {id:'t1',text:'Call AT&T and Xfinity for phone bill',done:false,days:[]},
@@ -286,6 +332,7 @@ const INITIAL_GOALS = [
   {
     id:'g2', label:'GOAL 2', title:'Reach <10% Body Fat',
     subtitle:'and build skills', color:'#059669', accent:'#D1FAE5',
+    tracking: emptyTracking(),
     categories:[
       { id:'c3', name:'Health', tasks:[
         {id:'t6',text:'Gym: back, arms, abs',done:false,days:[]},
@@ -300,6 +347,7 @@ const INITIAL_GOALS = [
   {
     id:'g3', label:'GOAL 3', title:'Land Defense Job in Europe',
     subtitle:'', color:'#7C3AED', accent:'#EDE9FE',
+    tracking: emptyTracking(),
     categories:[
       { id:'c5', name:'Job Applications', tasks:[
         {id:'t10',text:'Apply to National Security Director, Microsoft',done:false,days:[]},
@@ -320,6 +368,7 @@ const INITIAL_GOALS = [
   {
     id:'g4', label:'GOAL 4', title:'Strengthen Relationship with Borja',
     subtitle:'', color:'#DC2626', accent:'#FEE2E2',
+    tracking: emptyTracking(),
     categories:[
       { id:'c8', name:'Therapy', tasks:[
         {id:'t18',text:'Complete relationship vision worksheet',done:false,days:[]},
@@ -352,8 +401,8 @@ function uid(prefix) {
 }
 
 // ── Persistence ────────────────────────────────────────────────────────────
-// Older saves may have a single `day` field instead of a `days` array
-// (single-day scheduling); normalize on load so both shapes work.
+// Older saves may have a single `day` field instead of a `days` array, or no
+// `tracking` section at all; normalize on load so old and new shapes work.
 function migrateTask(t) {
   if (!Array.isArray(t.days)) {
     t.days = t.day ? [t.day] : [];
@@ -362,8 +411,15 @@ function migrateTask(t) {
   return t;
 }
 
+function migrateGoal(g) {
+  if (!g.tracking) g.tracking = emptyTracking();
+  g.categories.forEach(c => c.tasks.forEach(migrateTask));
+  g.tracking.tasks.forEach(migrateTask);
+  return g;
+}
+
 function normalize(loadedGoals) {
-  loadedGoals.forEach(g => g.categories.forEach(c => c.tasks.forEach(migrateTask)));
+  loadedGoals.forEach(migrateGoal);
   return loadedGoals;
 }
 
@@ -404,6 +460,17 @@ function setSaveStatus(status) {
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
+// A goal's "sections" are its user-editable categories plus its fixed
+// Tracking list — tasks can live in, and move between, any of them.
+function sectionsOf(goal) { return [...goal.categories, goal.tracking]; }
+
+function getSection(goalId, sectionId) {
+  const g = goals.find(g => g.id === goalId);
+  if (!g) return null;
+  if (sectionId === 'tracking') return g.tracking;
+  return g.categories.find(c => c.id === sectionId) || null;
+}
+
 function allTasks() { return goals.flatMap(g => g.categories.flatMap(c => c.tasks)); }
 function updateProgress() {
   const all = allTasks();
@@ -411,11 +478,11 @@ function updateProgress() {
 }
 
 function findTask(taskId) {
-  for (const g of goals) for (const c of g.categories) for (const t of c.tasks) if (t.id===taskId) return t;
+  for (const g of goals) for (const c of sectionsOf(g)) for (const t of c.tasks) if (t.id===taskId) return t;
   return null;
 }
-function findCatByTask(taskId) {
-  for (const g of goals) for (const c of g.categories) if (c.tasks.find(t=>t.id===taskId)) return c;
+function findSectionByTask(taskId) {
+  for (const g of goals) for (const c of sectionsOf(g)) if (c.tasks.find(t=>t.id===taskId)) return c;
   return null;
 }
 
@@ -458,7 +525,7 @@ function showUndoToast(message, onUndo) {
   toastTimer = setTimeout(() => el.classList.remove('show'), 5000);
 }
 
-// ── Actions ────────────────────────────────────────────────────────────────
+// ── Actions: tasks ─────────────────────────────────────────────────────────
 function toggleTask(taskId) {
   const t = findTask(taskId);
   if (!t) return;
@@ -468,7 +535,7 @@ function toggleTask(taskId) {
 }
 
 function removeTask(taskId) {
-  const c = findCatByTask(taskId);
+  const c = findSectionByTask(taskId);
   const t = findTask(taskId);
   if (!c || !t) return;
   const index = c.tasks.findIndex(x => x.id === taskId);
@@ -482,12 +549,10 @@ function removeTask(taskId) {
   });
 }
 
-function addTask(goalId, catId, text) {
-  const g = goals.find(g=>g.id===goalId);
-  if (!g) return;
-  const c = g.categories.find(c=>c.id===catId);
-  if (!c) return;
-  c.tasks.push({id:uid('t'), text, done:false, days:[]});
+function addTask(goalId, sectionId, text) {
+  const section = getSection(goalId, sectionId);
+  if (!section) return;
+  section.tasks.push({id:uid('t'), text, done:false, days:[]});
   scheduleSave();
   render();
 }
@@ -519,15 +584,58 @@ function unscheduleTaskDay(taskId, day) {
   render();
 }
 
-function reorderTasks(catId, orderedTaskIds) {
-  const cat = goals.flatMap(g => g.categories).find(c => c.id === catId);
-  if (!cat) return;
-  const byId = new Map(cat.tasks.map(t => [t.id, t]));
-  const reordered = orderedTaskIds.map(id => byId.get(id)).filter(Boolean);
-  if (reordered.length === cat.tasks.length) {
-    cat.tasks = reordered;
-    scheduleSave();
+// Reorders a task within its section, or moves it into a different section
+// (regular subsection <-> Tracking, or subsection <-> subsection) within the
+// same goal. `orderedIds` is the destination section's task ids in their
+// new on-screen order, including taskId.
+function moveTask(taskId, goalId, destSectionId, orderedIds) {
+  const task = findTask(taskId);
+  const destSection = getSection(goalId, destSectionId);
+  if (!task || !destSection) return;
+  const srcSection = findSectionByTask(taskId);
+  if (srcSection && srcSection !== destSection) {
+    const idx = srcSection.tasks.findIndex(t => t.id === taskId);
+    if (idx >= 0) srcSection.tasks.splice(idx, 1);
   }
+  const byId = new Map(destSection.tasks.map(t => [t.id, t]));
+  byId.set(taskId, task);
+  const rebuilt = orderedIds.map(id => byId.get(id)).filter(Boolean);
+  if (!rebuilt.includes(task)) rebuilt.push(task);
+  destSection.tasks = rebuilt;
+  scheduleSave();
+}
+
+// ── Actions: subsections ─────────────────────────────────────────────────
+function addCategory(goalId, name) {
+  const g = goals.find(g => g.id === goalId);
+  if (!g) return;
+  g.categories.push({ id: uid('c'), name, tasks: [] });
+  scheduleSave();
+  render();
+}
+
+function renameCategory(goalId, catId, name) {
+  const cat = getSection(goalId, catId);
+  if (!cat) return;
+  cat.name = name;
+  scheduleSave();
+  render();
+}
+
+function removeCategory(goalId, catId) {
+  const g = goals.find(g => g.id === goalId);
+  if (!g) return;
+  const idx = g.categories.findIndex(c => c.id === catId);
+  if (idx < 0) return;
+  const [removed] = g.categories.splice(idx, 1);
+  scheduleSave();
+  render();
+  const count = removed.tasks.length;
+  showUndoToast(`Removed "${removed.name}"${count ? ` (${count} task${count===1?'':'s'})` : ''}`, () => {
+    g.categories.splice(Math.min(idx, g.categories.length), 0, removed);
+    scheduleSave();
+    render();
+  });
 }
 
 function reorderCategories(goalId, orderedCatIds) {
@@ -565,6 +673,12 @@ function editSVG() {
   </svg>`;
 }
 
+function removeSVG() {
+  return `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+    <path d="M2 2L12 12M12 2L2 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  </svg>`;
+}
+
 function renderDayPicker(task, goalColor) {
   return `<div class="day-picker">
     ${DAYS.map(d => `<button class="day-btn${task.days.includes(d)?' active':''}" style="--goal-color:${goalColor}"
@@ -574,7 +688,7 @@ function renderDayPicker(task, goalColor) {
 
 function renderTask(task, goalColor) {
   return `<div class="task-row" data-id="${task.id}">
-    <button class="drag-handle task-drag-handle" aria-label="Reorder task">⠿</button>
+    <button class="drag-handle task-drag-handle" aria-label="Reorder or move task">⠿</button>
     <button class="task-check${task.done?' done':''}" style="--goal-color:${goalColor}"
       onclick="toggleTask('${task.id}')">${checkSVG()}</button>
     <div class="task-content">
@@ -582,11 +696,7 @@ function renderTask(task, goalColor) {
       ${renderDayPicker(task, goalColor)}
     </div>
     <button class="task-edit" onclick="activateEditTask(this,'${task.id}')" aria-label="Edit task">${editSVG()}</button>
-    <button class="task-remove" onclick="removeTask('${task.id}')" aria-label="Remove task">
-      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-        <path d="M2 2L12 12M12 2L2 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-      </svg>
-    </button>
+    <button class="task-remove" onclick="removeTask('${task.id}')" aria-label="Remove task">${removeSVG()}</button>
   </div>`;
 }
 
@@ -613,10 +723,10 @@ function activateEditTask(el, taskId) {
   });
 }
 
-function renderAddTask(goalId, catId, goalColor) {
+function renderAddTask(goalId, sectionId, goalColor) {
   return `<button class="add-task-btn" style="color:var(--subtle)"
     onmouseenter="this.style.color='${goalColor}'" onmouseleave="this.style.color=''"
-    onclick="activateAddTask(this,'${goalId}','${catId}')">
+    onclick="activateAddTask(this,'${goalId}','${sectionId}')">
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
       <path d="M6 1V11M1 6H11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
     </svg>
@@ -624,7 +734,7 @@ function renderAddTask(goalId, catId, goalColor) {
   </button>`;
 }
 
-function activateAddTask(btn, goalId, catId) {
+function activateAddTask(btn, goalId, sectionId) {
   const parent = btn.parentElement;
   const wrapper = document.createElement('div');
   wrapper.className = 'add-task-row';
@@ -636,32 +746,105 @@ function activateAddTask(btn, goalId, catId) {
   wireInlineEditor(input, {
     onCommit: (value) => {
       const text = value.trim();
-      if (text) addTask(goalId, catId, text);
+      if (text) addTask(goalId, sectionId, text);
       else render();
     },
     onCancel: () => render()
   });
 }
 
+function renderAddCategory(goalId) {
+  return `<button class="add-cat-btn" onclick="activateAddCategory(this,'${goalId}')">
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+      <path d="M6 1V11M1 6H11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    </svg>
+    Add subsection
+  </button>`;
+}
+
+function activateAddCategory(btn, goalId) {
+  const parent = btn.parentElement;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'add-cat-row';
+  wrapper.innerHTML = `<input class="add-cat-input" placeholder="New subsection…" autocomplete="off">`;
+  parent.replaceChild(wrapper, btn);
+  const input = wrapper.querySelector('input');
+  input.focus();
+  wireInlineEditor(input, {
+    onCommit: (value) => {
+      const text = value.trim();
+      if (text) addCategory(goalId, text);
+      else render();
+    },
+    onCancel: () => render()
+  });
+}
+
+function activateRenameCategory(el, goalId, catId) {
+  const cat = getSection(goalId, catId);
+  if (!cat) return;
+  const row = el.closest('.cat-label-row');
+  const labelEl = row.querySelector('.cat-label');
+  const wrapper = document.createElement('div');
+  wrapper.className = 'cat-name-edit';
+  wrapper.innerHTML = `<input class="cat-name-input" autocomplete="off">`;
+  labelEl.replaceWith(wrapper);
+  const input = wrapper.querySelector('input');
+  input.value = cat.name;
+  input.focus();
+  input.select();
+  wireInlineEditor(input, {
+    onCommit: (value) => {
+      const text = value.trim();
+      if (text) renameCategory(goalId, catId, text);
+      else render();
+    },
+    onCancel: () => render()
+  });
+}
+
+function emptyListHint() {
+  return `<div class="task-list-empty-hint">No tasks — drag one here, or add below</div>`;
+}
+
+function renderCategoryBlock(goal, cat) {
+  return `<div class="cat-block" data-id="${cat.id}">
+    <div class="cat-label-row">
+      <button class="drag-handle cat-drag-handle" aria-label="Reorder subsection">⠿</button>
+      <div class="cat-label" style="--goal-color:${goal.color}" ondblclick="activateRenameCategory(this,'${goal.id}','${cat.id}')">${escHtml(cat.name)}</div>
+      <button class="cat-rename" onclick="activateRenameCategory(this,'${goal.id}','${cat.id}')" aria-label="Rename subsection">${editSVG()}</button>
+      <button class="cat-remove" onclick="removeCategory('${goal.id}','${cat.id}')" aria-label="Remove subsection">${removeSVG()}</button>
+    </div>
+    <div class="task-list" data-cat-id="${cat.id}">
+      ${cat.tasks.map(t=>renderTask(t,goal.color)).join('') || emptyListHint()}
+    </div>
+    ${renderAddTask(goal.id, cat.id, goal.color)}
+  </div>`;
+}
+
+function renderTrackingBlock(goal) {
+  const t = goal.tracking;
+  return `<div class="tracking-block">
+    <div class="tracking-label-row">
+      <span class="tracking-label">📌 Tracking</span>
+    </div>
+    <div class="task-list" data-cat-id="tracking">
+      ${t.tasks.map(tk=>renderTask(tk,goal.color)).join('') || emptyListHint()}
+    </div>
+    ${renderAddTask(goal.id, 'tracking', goal.color)}
+  </div>`;
+}
+
 function renderGoalCard(goal) {
+  // Tracking is a long-term backlog, not this cycle's push, so it's kept
+  // out of the completion percentage on purpose.
   const tasks = goal.categories.flatMap(c=>c.tasks);
   const done = tasks.filter(t=>t.done).length;
   const pct = tasks.length===0 ? 0 : Math.round(done/tasks.length*100);
 
-  const catsHtml = goal.categories.map(cat => `
-    <div class="cat-block" data-id="${cat.id}">
-      <div class="cat-label-row">
-        <button class="drag-handle cat-drag-handle" aria-label="Reorder category">⠿</button>
-        <div class="cat-label">${escHtml(cat.name)}</div>
-      </div>
-      <div class="task-list" data-cat-id="${cat.id}">
-        ${cat.tasks.map(t=>renderTask(t,goal.color)).join('')}
-      </div>
-      ${renderAddTask(goal.id, cat.id, goal.color)}
-    </div>
-  `).join('');
+  const catsHtml = goal.categories.map(cat => renderCategoryBlock(goal, cat)).join('');
 
-  return `<div class="goal-card">
+  return `<div class="goal-card" data-goal-id="${goal.id}">
     <div class="goal-header" style="background:${goal.accent}">
       <div class="goal-header-row">
         <div>
@@ -680,6 +863,8 @@ function renderGoalCard(goal) {
     </div>
     <div class="goal-body">
       <div class="cat-list" data-goal-id="${goal.id}">${catsHtml}</div>
+      ${renderAddCategory(goal.id)}
+      ${renderTrackingBlock(goal)}
     </div>
   </div>`;
 }
@@ -694,7 +879,7 @@ function renderDayView() {
   // Filtered tasks
   const container = document.getElementById('day-tasks');
   const items = [];
-  goals.forEach(g => g.categories.forEach(c => c.tasks.forEach(t => {
+  goals.forEach(g => sectionsOf(g).forEach(c => c.tasks.forEach(t => {
     if (t.days.includes(selectedDay)) items.push({...t, goalTitle:g.title, goalColor:g.color, goalId:g.id});
   })));
 
@@ -725,17 +910,28 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// ── Drag-and-drop reordering ─────────────────────────────────────────────
+// ── Drag-and-drop reordering / moving ─────────────────────────────────────
 // Uses Pointer Events (not the HTML5 drag-and-drop API) because native
 // drag-and-drop isn't supported on iOS Safari — Pointer Events work
 // identically for mouse, touch, and pen, which matters since this app is
 // meant to be used as an iPhone home-screen app.
-function startDrag(startEvent, item, container, itemSelector, onCommit) {
+//
+// `dropZones` lists every drop target the dragged item is allowed to land
+// in, as {hitEl, listEl} pairs: hitEl is the (larger) element the pointer
+// is tested against — e.g. a whole subsection block, header and all — and
+// listEl is the actual list the item gets inserted into. Hit-testing the
+// whole block rather than just its inner list avoids dead zones: adjacent
+// blocks' own bounding boxes can have a thin gap between them (e.g. from a
+// margin that collapses through a border/padding-less parent), and a drop
+// released over another section's header would otherwise silently miss.
+function startDrag(startEvent, item, initialContainer, itemSelector, { dropZones, onCommit }) {
   startEvent.preventDefault();
   const pointerId = startEvent.pointerId;
   const rect = item.getBoundingClientRect();
   const offsetX = startEvent.clientX - rect.left;
   const offsetY = startEvent.clientY - rect.top;
+  const zones = (dropZones && dropZones.length) ? dropZones : [{ hitEl: initialContainer, listEl: initialContainer }];
+  let container = initialContainer;
 
   const placeholder = document.createElement('div');
   placeholder.className = 'drag-placeholder';
@@ -753,19 +949,30 @@ function startDrag(startEvent, item, container, itemSelector, onCommit) {
 
   try { item.setPointerCapture(pointerId); } catch(e) {}
 
-  function siblings() {
-    return Array.from(container.querySelectorAll(':scope > ' + itemSelector));
+  function siblingsOf(c) {
+    return Array.from(c.querySelectorAll(':scope > ' + itemSelector));
+  }
+
+  function containerAt(x, y) {
+    for (const { hitEl, listEl } of zones) {
+      const r = hitEl.getBoundingClientRect();
+      if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return listEl;
+    }
+    return null;
   }
 
   function onMove(e) {
     if (e.pointerId !== pointerId) return;
     item.style.left = (e.clientX - offsetX) + 'px';
     item.style.top = (e.clientY - offsetY) + 'px';
-    const y = e.clientY;
+
+    const hit = containerAt(e.clientX, e.clientY);
+    if (hit) container = hit;
+
     let target = null;
-    for (const sib of siblings()) {
+    for (const sib of siblingsOf(container)) {
       const r = sib.getBoundingClientRect();
-      if (y < r.top + r.height / 2) { target = sib; break; }
+      if (e.clientY < r.top + r.height / 2) { target = sib; break; }
     }
     if (target) container.insertBefore(placeholder, target);
     else container.appendChild(placeholder);
@@ -785,8 +992,8 @@ function startDrag(startEvent, item, container, itemSelector, onCommit) {
     item.style.width = '';
     item.style.zIndex = '';
     item.style.pointerEvents = '';
-    const ids = siblings().map(el => el.dataset.id);
-    onCommit(ids);
+    const ids = siblingsOf(container).map(el => el.dataset.id);
+    onCommit(container, ids);
     render();
   }
 
@@ -800,14 +1007,25 @@ document.addEventListener('pointerdown', (e) => {
   if (taskHandle) {
     const row = taskHandle.closest('.task-row');
     const list = row.closest('.task-list');
-    startDrag(e, row, list, '.task-row', (ids) => reorderTasks(list.dataset.catId, ids));
+    const goalCard = row.closest('.goal-card');
+    const goalId = goalCard.dataset.goalId;
+    const taskId = row.dataset.id;
+    const sectionEls = Array.from(goalCard.querySelectorAll('.cat-block, .tracking-block'));
+    const dropZones = sectionEls.map(sectionEl => ({ hitEl: sectionEl, listEl: sectionEl.querySelector('.task-list') }));
+    startDrag(e, row, list, '.task-row', {
+      dropZones,
+      onCommit: (destContainer, ids) => moveTask(taskId, goalId, destContainer.dataset.catId, ids)
+    });
     return;
   }
   const catHandle = e.target.closest('.cat-drag-handle');
   if (catHandle) {
     const block = catHandle.closest('.cat-block');
     const list = block.closest('.cat-list');
-    startDrag(e, block, list, '.cat-block', (ids) => reorderCategories(list.dataset.goalId, ids));
+    startDrag(e, block, list, '.cat-block', {
+      dropZones: [{ hitEl: list, listEl: list }],
+      onCommit: (_destContainer, ids) => reorderCategories(list.dataset.goalId, ids)
+    });
   }
 });
 
