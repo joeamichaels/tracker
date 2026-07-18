@@ -238,6 +238,13 @@
 
   /* DAY VIEW */
   #day-selector { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .export-ics-btn {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 14px;
+    background: var(--card); border: 1.5px solid var(--border-mid, #D1D5DB); border-radius: 8px;
+    padding: 7px 12px; font-family: inherit; font-size: 12.5px; font-weight: 600;
+    color: var(--muted); cursor: pointer; transition: all 0.15s;
+  }
+  .export-ics-btn:hover { color: var(--text); border-color: var(--topbar); }
   .day-filter-btn {
     padding: 7px 14px; font-size: 13px; font-weight: 600; border-radius: 8px;
     border: 2px solid var(--border); background: var(--card); color: #374151;
@@ -388,6 +395,10 @@
   </div>
   <div id="day-view" style="display:none">
     <div id="day-selector"></div>
+    <button class="export-ics-btn" onclick="exportToCalendar()">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><path d="M7 1V9M7 9L4 6M7 9L10 6M2 11V12.5C2 12.7761 2.22386 13 2.5 13H11.5C11.7761 13 12 12.7761 12 12.5V11" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Export scheduled items to Apple Calendar
+    </button>
     <div id="day-quick-add"></div>
     <div id="day-unscheduled-wrap">
       <div class="day-section-label">Unscheduled</div>
@@ -841,6 +852,86 @@ function formatDuration(mins) {
   if (mins < 60) return mins + 'm';
   const h = mins / 60;
   return (Number.isInteger(h) ? h : h.toFixed(1)) + 'h';
+}
+
+// ── Export to Apple Calendar (.ics) ───────────────────────────────────────
+// One-way export: a single .ics file with one recurring weekly VEVENT per
+// task that has both a day and a time set (untimed "Unscheduled" items
+// have no well-defined start time, so they're left out). There's no
+// backend here to keep this live-synced — re-run the export whenever the
+// schedule changes and re-import.
+const ICS_BYDAY = { Mon:'MO', Tue:'TU', Wed:'WE', Thu:'TH', Fri:'FR', Sat:'SA', Sun:'SU' };
+const ICS_WEEKDAY_INDEX = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 };
+
+function pad2(n) { return String(n).padStart(2, '0'); }
+
+function escapeICSText(s) {
+  return String(s).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+}
+
+// Floating local time (no trailing Z / TZID), so the event always reflects
+// whatever timezone the importing device is actually in — appropriate for
+// a personal recurring reminder rather than a fixed-instant meeting.
+function formatICSFloating(date) {
+  return `${date.getFullYear()}${pad2(date.getMonth()+1)}${pad2(date.getDate())}T${pad2(date.getHours())}${pad2(date.getMinutes())}00`;
+}
+
+function formatICSUTC(date) {
+  return date.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+}
+
+function nextDateForWeekday(dayAbbrev, hours, minutes) {
+  const target = ICS_WEEKDAY_INDEX[dayAbbrev];
+  const now = new Date();
+  const result = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0, 0);
+  result.setDate(result.getDate() + ((target - now.getDay() + 7) % 7));
+  return result;
+}
+
+function scheduledEvents() {
+  const events = [];
+  goals.forEach(g => sectionsOf(g).forEach(section => section.tasks.forEach(t => {
+    if (t.time && t.days && t.days.length > 0) events.push({ task: t, goal: g, section });
+  })));
+  return events;
+}
+
+function buildICS(events) {
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//To Do List//EN', 'CALSCALE:GREGORIAN'];
+  const stamp = formatICSUTC(new Date());
+  events.forEach(({ task, goal, section }) => {
+    const [h, m] = task.time.split(':').map(Number);
+    const start = nextDateForWeekday(task.days[0], h, m);
+    const byday = task.days.map(d => ICS_BYDAY[d]).join(',');
+    lines.push('BEGIN:VEVENT');
+    lines.push('UID:' + task.id + '@todolist');
+    lines.push('DTSTAMP:' + stamp);
+    lines.push('DTSTART:' + formatICSFloating(start));
+    lines.push('DURATION:PT' + task.duration + 'M');
+    lines.push('RRULE:FREQ=WEEKLY;BYDAY=' + byday);
+    lines.push('SUMMARY:' + escapeICSText(task.text));
+    lines.push('DESCRIPTION:' + escapeICSText(goal.title + (section.name ? ' — ' + section.name : '')));
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
+
+function exportToCalendar() {
+  const events = scheduledEvents();
+  if (events.length === 0) {
+    alert('No scheduled items to export yet — give a task a day and time on the calendar first.');
+    return;
+  }
+  const blob = new Blob([buildICS(events)], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'todo-schedule.ics';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function renderDayPicker(task, goalColor) {
