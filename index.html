@@ -496,7 +496,7 @@ function uid(prefix) {
 // ── Persistence ────────────────────────────────────────────────────────────
 // Older saves may have a single `day` field instead of a `days` array, or no
 // `tracking` section at all; normalize on load so old and new shapes work.
-const DEFAULT_DURATION = 45; // minutes
+const DEFAULT_DURATION = 60; // minutes
 
 function migrateTask(t) {
   if (!Array.isArray(t.days)) {
