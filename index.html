@@ -303,14 +303,20 @@
     background: var(--card); padding-right: 4px; pointer-events: none;
   }
   .cal-chip {
-    position: absolute; left: 66px; right: 8px; height: 46px;
-    display: flex; align-items: center; gap: 4px;
+    position: absolute; left: 66px; right: 8px; /* height set inline per task's duration */
+    display: flex; align-items: center; gap: 4px; overflow: hidden;
     background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--goal-color, #2563EB);
-    border-radius: 6px; padding: 0 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    border-radius: 6px; padding: 3px 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
   }
   .cal-chip.dragging { box-shadow: 0 10px 28px rgba(0,0,0,0.22); z-index: 1000; }
-  .cal-chip-content { flex: 1; min-width: 0; }
-  .cal-chip-time { font-size: 10px; color: var(--subtle); font-weight: 600; line-height: 1.2; }
+  .cal-chip-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+  .cal-chip-meta { display: flex; align-items: center; gap: 5px; }
+  .cal-chip-time { font-size: 10px; color: var(--subtle); font-weight: 600; line-height: 1.2; white-space: nowrap; }
+  .cal-chip-duration {
+    font-size: 9.5px; font-family: inherit; color: var(--muted); background: #fff;
+    border: 1px solid var(--border-mid, #D1D5DB); border-radius: 4px; padding: 0 1px;
+    height: 15px; line-height: 1; flex-shrink: 0;
+  }
   .cal-chip-text {
     font-size: 12.5px; line-height: 1.25; white-space: nowrap; overflow: hidden;
     text-overflow: ellipsis; cursor: text;
@@ -328,6 +334,15 @@
   .now-dot {
     position: absolute; left: -5px; top: -4px; width: 8px; height: 8px;
     border-radius: 50%; background: #EF4444;
+  }
+  .drop-preview-line {
+    position: absolute; left: 66px; right: 8px; height: 0;
+    border-top: 2px solid #2563EB; pointer-events: none; z-index: 900;
+  }
+  .drop-preview-label {
+    position: absolute; right: 0; top: -19px; background: #2563EB; color: #fff;
+    font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 4px;
+    white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
   }
 
   /* CHECK ICON */
@@ -397,13 +412,12 @@ const INITIAL_GOALS = [
     tracking: emptyTracking(),
     categories:[
       { id:'c1', name:'Bills', tasks:[
-        {id:'t1',text:'Call AT&T and Xfinity for phone bill',done:false,days:[],time:null},
-        {id:'t2',text:'Submit claims to KP',done:false,days:[],time:null}
+        {id:'t1',text:'Call AT&T and Xfinity for phone bill',done:false,days:['Mon'],time:null},
+        {id:'t2',text:'Submit disputes to insurance',done:false,days:['Mon'],time:null},
+        {id:'t3',text:'Visit WellsFargo',done:false,days:['Mon'],time:null}
       ]},
       { id:'c2', name:'Bachelor Party', tasks:[
-        {id:'t3',text:'Review house options for Cartagena',done:false,days:[],time:null},
-        {id:'t4',text:'Book Cartagena flight',done:false,days:[],time:null},
-        {id:'t5',text:'Buy suit',done:false,days:[],time:null}
+        {id:'t4',text:'Buy suit',done:false,days:[],time:null}
       ]}
     ]
   },
@@ -413,33 +427,30 @@ const INITIAL_GOALS = [
     tracking: emptyTracking(),
     categories:[
       { id:'c3', name:'Health', tasks:[
-        {id:'t6',text:'Gym: back, arms, abs',done:false,days:[],time:null},
-        {id:'t7',text:'Restart tracking macros',done:false,days:[],time:null}
+        {id:'t5',text:'Gym: Legs, Abs',done:false,days:['Sun'],time:null},
+        {id:'t6',text:'Yoga',done:false,days:['Sat'],time:null}
       ]},
       { id:'c4', name:'Study', tasks:[
-        {id:'t8',text:'Read first Seneca essay',done:false,days:[],time:null},
-        {id:'t9',text:'Schedule Spanish class',done:false,days:[],time:null}
+        {id:'t7',text:'Spanish Class',done:false,days:['Wed'],time:null}
       ]}
     ]
   },
   {
     id:'g3', label:'GOAL 3', title:'Land Defense Job in Europe',
     subtitle:'', color:'#7C3AED', accent:'#EDE9FE',
-    tracking: emptyTracking(),
+    tracking: { id:'tracking', name:'Tracking', tasks:[
+      {id:'t8',text:'Email Jessica for Coffee Chat with Charlotte (OPS Director)',done:false,days:[],time:null},
+      {id:'t9',text:'Apply for Palantir, Forward Deployment Strategist',done:false,days:[],time:null},
+      {id:'t10',text:'Apply to SHAPE International Senior Affairs Officer, August 2',done:false,days:[],time:null},
+      {id:'t11',text:'Apply to GMF Young Strategist Program, August 13',done:false,days:[],time:null}
+    ]},
     categories:[
       { id:'c5', name:'Job Applications', tasks:[
-        {id:'t10',text:'Apply to National Security Director, Microsoft',done:false,days:[],time:null},
-        {id:'t11',text:'Research other job search platforms; use AI',done:false,days:[],time:null}
+        {id:'t12',text:'Apply to IS Enablement and Logistics Policy Officer, July 19',done:false,days:['Sat'],time:null},
+        {id:'t13',text:'Apply to SHAPE China Strategic Policy Officer, July 20',done:false,days:['Sat'],time:null}
       ]},
-      { id:'c6', name:'Professional Development', tasks:[
-        {id:'t12',text:'Apply to Bucerius Global Governance Program, Aug 7–17, Hamburg',done:true,days:[],time:null},
-        {id:'t13',text:'Register for Atlantic-Brücke Young Leaders Conference, Aug 8–14, Denver',done:true,days:[],time:null},
-        {id:'t14',text:'Draft leave request for Madeline review',done:false,days:[],time:null}
-      ]},
-      { id:'c7', name:'USNATO TDY', tasks:[
-        {id:'t15',text:'Email Leigh Ann',done:true,days:[],time:null},
-        {id:'t16',text:'Email Alton',done:true,days:[],time:null},
-        {id:'t17',text:'Meet with Dot',done:false,days:[],time:null}
+      { id:'c6', name:'Professional Development / Networking', tasks:[
+        {id:'t14',text:'Connect with Andurill Europe Director',done:false,days:['Sat'],time:null}
       ]}
     ]
   },
@@ -448,17 +459,17 @@ const INITIAL_GOALS = [
     subtitle:'', color:'#DC2626', accent:'#FEE2E2',
     tracking: emptyTracking(),
     categories:[
-      { id:'c8', name:'Therapy', tasks:[
-        {id:'t18',text:'Complete relationship vision worksheet',done:false,days:[],time:null},
-        {id:'t19',text:'Call KP for quote for Saturday session',done:false,days:[],time:null}
+      { id:'c7', name:'Therapy', tasks:[
+        {id:'t15',text:'Coffee Chat',done:false,days:['Sun'],time:null},
+        {id:'t16',text:'Appointment with Ben',done:false,days:['Tue'],time:null},
+        {id:'t17',text:'Appointment with Jason',done:false,days:[],time:null}
       ]},
-      { id:'c9', name:'Apartment Move-In', tasks:[
-        {id:'t20',text:'Ask to use Bene car for move-in',done:false,days:[],time:null}
+      { id:'c8', name:'Life Planning', tasks:[
+        {id:'t18',text:'Book August flights to Europe',done:false,days:['Sun'],time:null},
+        {id:'t19',text:'Call Albanian friend',done:false,days:['Sat'],time:null}
       ]},
-      { id:'c10', name:'Life Planning', tasks:[
-        {id:'t21',text:'Help create job tracker with Borja on Claude',done:false,days:[],time:null},
-        {id:'t22',text:'Plan summer leave with Borja',done:false,days:[],time:null},
-        {id:'t23',text:'Create budget with Borja',done:false,days:[],time:null}
+      { id:'c9', name:'Home Care', tasks:[
+        {id:'t20',text:'Fix closet',done:false,days:['Sat'],time:null}
       ]}
     ]
   }
@@ -481,12 +492,15 @@ function uid(prefix) {
 // ── Persistence ────────────────────────────────────────────────────────────
 // Older saves may have a single `day` field instead of a `days` array, or no
 // `tracking` section at all; normalize on load so old and new shapes work.
+const DEFAULT_DURATION = 60; // minutes
+
 function migrateTask(t) {
   if (!Array.isArray(t.days)) {
     t.days = t.day ? [t.day] : [];
   }
   delete t.day;
   if (typeof t.time === 'undefined') t.time = null;
+  if (typeof t.duration !== 'number' || t.duration <= 0) t.duration = DEFAULT_DURATION;
   return t;
 }
 
@@ -631,7 +645,7 @@ function removeTask(taskId) {
 function addTask(goalId, sectionId, text) {
   const section = getSection(goalId, sectionId);
   if (!section) return;
-  section.tasks.push({id:uid('t'), text, done:false, days:[], time:null});
+  section.tasks.push({id:uid('t'), text, done:false, days:[], time:null, duration:DEFAULT_DURATION});
   scheduleSave();
   render();
 }
@@ -641,7 +655,7 @@ function addTask(goalId, sectionId, text) {
 function addTaskForDay(goalId, sectionId, text, day) {
   const section = getSection(goalId, sectionId);
   if (!section) return;
-  section.tasks.push({id:uid('t'), text, done:false, days:[day], time:null});
+  section.tasks.push({id:uid('t'), text, done:false, days:[day], time:null, duration:DEFAULT_DURATION});
   scheduleSave();
   render();
 }
@@ -680,6 +694,16 @@ function setTaskTime(taskId, timeStr) {
   const t = findTask(taskId);
   if (!t) return;
   t.time = timeStr;
+  scheduleSave();
+  render();
+}
+
+function setTaskDuration(taskId, minutes) {
+  const t = findTask(taskId);
+  if (!t) return;
+  const m = parseInt(minutes, 10);
+  if (!m || m <= 0) return;
+  t.duration = m;
   scheduleSave();
   render();
 }
@@ -809,6 +833,14 @@ function hourLabel(h) {
   const ampm = h < 12 ? 'AM' : 'PM';
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12} ${ampm}`;
+}
+
+const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120, 180, 240];
+
+function formatDuration(mins) {
+  if (mins < 60) return mins + 'm';
+  const h = mins / 60;
+  return (Number.isInteger(h) ? h : h.toFixed(1)) + 'h';
 }
 
 function renderDayPicker(task, goalColor) {
@@ -1065,12 +1097,18 @@ function renderCalendarGrid(timedItems) {
 
   const chips = timedItems.map(t => {
     const top = timeToMinutes(t.time) / 60 * HOUR_H;
-    return `<div class="cal-chip" data-id="${t.id}" style="top:${top}px;--goal-color:${t.goalColor};border-left-color:${t.goalColor}">
+    const height = Math.max(30, t.duration / 60 * HOUR_H);
+    return `<div class="cal-chip" data-id="${t.id}" style="top:${top}px;height:${height}px;--goal-color:${t.goalColor};border-left-color:${t.goalColor}">
       <button class="drag-handle cal-drag-handle" aria-label="Drag to reschedule">⠿</button>
       <button class="task-check${t.done?' done':''}" style="--goal-color:${t.goalColor}"
         onclick="toggleTask('${t.id}')">${checkSVG()}</button>
       <div class="cal-chip-content">
-        <div class="cal-chip-time">${formatTime12(t.time)} · ${escHtml(t.goalTitle)}</div>
+        <div class="cal-chip-meta">
+          <span class="cal-chip-time">${formatTime12(t.time)}</span>
+          <select class="cal-chip-duration" onchange="setTaskDuration('${t.id}', this.value)" aria-label="Duration">
+            ${DURATION_OPTIONS.map(m => `<option value="${m}"${t.duration===m?' selected':''}>${formatDuration(m)}</option>`).join('')}
+          </select>
+        </div>
         <div class="cal-chip-text${t.done?' done':''}" ondblclick="activateEditTask(this,'${t.id}')">${escHtml(t.text)}</div>
       </div>
       <button class="cal-chip-remove" onclick="unscheduleTaskDay('${t.id}','${selectedDay}')" aria-label="Remove from this day">${removeSVG()}</button>
@@ -1114,10 +1152,38 @@ function startDayDrag(startEvent, chip, taskId) {
   document.body.appendChild(chip);
   try { chip.setPointerCapture(pointerId); } catch(e) {}
 
+  // Live drop-time indicator: a line + time label on the grid showing
+  // exactly where the chip will land if released now, updated on every
+  // move so the target time is visible before you let go.
+  const preview = document.createElement('div');
+  preview.className = 'drop-preview-line';
+  preview.innerHTML = '<span class="drop-preview-label"></span>';
+  let pendingMinutes = null; // null = not over the grid; will unschedule on drop
+
   function onMove(e) {
     if (e.pointerId !== pointerId) return;
     chip.style.left = (e.clientX - offsetX) + 'px';
     chip.style.top = (e.clientY - offsetY) + 'px';
+
+    const gr = grid.getBoundingClientRect();
+    const overGrid = e.clientX >= gr.left && e.clientX <= gr.right && e.clientY >= gr.top && e.clientY <= gr.bottom;
+    if (overGrid) {
+      // Use the chip's own (grab-offset-adjusted) top edge, matching what's
+      // actually shown above — not the raw pointer position, which sits
+      // wherever on the chip you happened to grab it and previously made
+      // the committed time drift later than where the chip visually was.
+      const chipTopY = e.clientY - offsetY;
+      const relY = (chipTopY - gr.top) + grid.scrollTop;
+      let minutes = Math.round((relY / HOUR_H * 60) / 15) * 15;
+      minutes = Math.max(0, Math.min(23 * 60 + 45, minutes));
+      pendingMinutes = minutes;
+      if (!preview.parentNode) grid.appendChild(preview);
+      preview.style.top = (minutes / 60 * HOUR_H) + 'px';
+      preview.querySelector('.drop-preview-label').textContent = formatTime12(minutesToTime(minutes));
+    } else {
+      pendingMinutes = null;
+      if (preview.parentNode) preview.remove();
+    }
   }
 
   function onUp(e) {
@@ -1126,22 +1192,14 @@ function startDayDrag(startEvent, chip, taskId) {
     document.removeEventListener('pointerup', onUp);
     document.removeEventListener('pointercancel', onUp);
 
-    const gr = grid.getBoundingClientRect();
-    const overGrid = e.clientX >= gr.left && e.clientX <= gr.right && e.clientY >= gr.top && e.clientY <= gr.bottom;
     // render() rebuilds #day-calendar and #day-unscheduled-list with fresh
     // nodes from scratch, so the floating chip (appended to <body> above)
     // must be removed here — otherwise it's left behind as an orphaned,
     // still position:fixed leftover distinct from its freshly-rendered
     // replacement.
     chip.remove();
-    if (overGrid) {
-      const relY = (e.clientY - gr.top) + grid.scrollTop;
-      let minutes = Math.round((relY / HOUR_H * 60) / 15) * 15;
-      minutes = Math.max(0, Math.min(23 * 60 + 45, minutes));
-      setTaskTime(taskId, minutesToTime(minutes));
-    } else {
-      setTaskTime(taskId, null);
-    }
+    if (preview.parentNode) preview.remove();
+    setTaskTime(taskId, pendingMinutes == null ? null : minutesToTime(pendingMinutes));
   }
 
   document.addEventListener('pointermove', onMove);
