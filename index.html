@@ -412,13 +412,12 @@ const INITIAL_GOALS = [
     tracking: emptyTracking(),
     categories:[
       { id:'c1', name:'Bills', tasks:[
-        {id:'t1',text:'Call AT&T and Xfinity for phone bill',done:false,days:[],time:null},
-        {id:'t2',text:'Submit claims to KP',done:false,days:[],time:null}
+        {id:'t1',text:'Call AT&T and Xfinity for phone bill',done:false,days:['Mon'],time:null},
+        {id:'t2',text:'Submit disputes to insurance',done:false,days:['Mon'],time:null},
+        {id:'t3',text:'Visit WellsFargo',done:false,days:['Mon'],time:null}
       ]},
       { id:'c2', name:'Bachelor Party', tasks:[
-        {id:'t3',text:'Review house options for Cartagena',done:false,days:[],time:null},
-        {id:'t4',text:'Book Cartagena flight',done:false,days:[],time:null},
-        {id:'t5',text:'Buy suit',done:false,days:[],time:null}
+        {id:'t4',text:'Buy suit',done:false,days:[],time:null}
       ]}
     ]
   },
@@ -428,33 +427,30 @@ const INITIAL_GOALS = [
     tracking: emptyTracking(),
     categories:[
       { id:'c3', name:'Health', tasks:[
-        {id:'t6',text:'Gym: back, arms, abs',done:false,days:[],time:null},
-        {id:'t7',text:'Restart tracking macros',done:false,days:[],time:null}
+        {id:'t5',text:'Gym: Legs, Abs',done:false,days:['Sun'],time:null},
+        {id:'t6',text:'Yoga',done:false,days:['Sat'],time:null}
       ]},
       { id:'c4', name:'Study', tasks:[
-        {id:'t8',text:'Read first Seneca essay',done:false,days:[],time:null},
-        {id:'t9',text:'Schedule Spanish class',done:false,days:[],time:null}
+        {id:'t7',text:'Spanish Class',done:false,days:['Wed'],time:null}
       ]}
     ]
   },
   {
     id:'g3', label:'GOAL 3', title:'Land Defense Job in Europe',
     subtitle:'', color:'#7C3AED', accent:'#EDE9FE',
-    tracking: emptyTracking(),
+    tracking: { id:'tracking', name:'Tracking', tasks:[
+      {id:'t8',text:'Email Jessica for Coffee Chat with Charlotte (OPS Director)',done:false,days:[],time:null},
+      {id:'t9',text:'Apply for Palantir, Forward Deployment Strategist',done:false,days:[],time:null},
+      {id:'t10',text:'Apply to SHAPE International Senior Affairs Officer, August 2',done:false,days:[],time:null},
+      {id:'t11',text:'Apply to GMF Young Strategist Program, August 13',done:false,days:[],time:null}
+    ]},
     categories:[
       { id:'c5', name:'Job Applications', tasks:[
-        {id:'t10',text:'Apply to National Security Director, Microsoft',done:false,days:[],time:null},
-        {id:'t11',text:'Research other job search platforms; use AI',done:false,days:[],time:null}
+        {id:'t12',text:'Apply to IS Enablement and Logistics Policy Officer, July 19',done:false,days:['Sat'],time:null},
+        {id:'t13',text:'Apply to SHAPE China Strategic Policy Officer, July 20',done:false,days:['Sat'],time:null}
       ]},
-      { id:'c6', name:'Professional Development', tasks:[
-        {id:'t12',text:'Apply to Bucerius Global Governance Program, Aug 7–17, Hamburg',done:true,days:[],time:null},
-        {id:'t13',text:'Register for Atlantic-Brücke Young Leaders Conference, Aug 8–14, Denver',done:true,days:[],time:null},
-        {id:'t14',text:'Draft leave request for Madeline review',done:false,days:[],time:null}
-      ]},
-      { id:'c7', name:'USNATO TDY', tasks:[
-        {id:'t15',text:'Email Leigh Ann',done:true,days:[],time:null},
-        {id:'t16',text:'Email Alton',done:true,days:[],time:null},
-        {id:'t17',text:'Meet with Dot',done:false,days:[],time:null}
+      { id:'c6', name:'Professional Development / Networking', tasks:[
+        {id:'t14',text:'Connect with Andurill Europe Director',done:false,days:['Sat'],time:null}
       ]}
     ]
   },
@@ -463,17 +459,17 @@ const INITIAL_GOALS = [
     subtitle:'', color:'#DC2626', accent:'#FEE2E2',
     tracking: emptyTracking(),
     categories:[
-      { id:'c8', name:'Therapy', tasks:[
-        {id:'t18',text:'Complete relationship vision worksheet',done:false,days:[],time:null},
-        {id:'t19',text:'Call KP for quote for Saturday session',done:false,days:[],time:null}
+      { id:'c7', name:'Therapy', tasks:[
+        {id:'t15',text:'Coffee Chat',done:false,days:['Sun'],time:null},
+        {id:'t16',text:'Appointment with Ben',done:false,days:['Tue'],time:null},
+        {id:'t17',text:'Appointment with Jason',done:false,days:[],time:null}
       ]},
-      { id:'c9', name:'Apartment Move-In', tasks:[
-        {id:'t20',text:'Ask to use Bene car for move-in',done:false,days:[],time:null}
+      { id:'c8', name:'Life Planning', tasks:[
+        {id:'t18',text:'Book August flights to Europe',done:false,days:['Sun'],time:null},
+        {id:'t19',text:'Call Albanian friend',done:false,days:['Sat'],time:null}
       ]},
-      { id:'c10', name:'Life Planning', tasks:[
-        {id:'t21',text:'Help create job tracker with Borja on Claude',done:false,days:[],time:null},
-        {id:'t22',text:'Plan summer leave with Borja',done:false,days:[],time:null},
-        {id:'t23',text:'Create budget with Borja',done:false,days:[],time:null}
+      { id:'c9', name:'Home Care', tasks:[
+        {id:'t20',text:'Fix closet',done:false,days:['Sat'],time:null}
       ]}
     ]
   }
