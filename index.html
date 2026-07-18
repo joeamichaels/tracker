@@ -19,6 +19,7 @@
     --row-hover: #F9FAFB;
     --topbar: #111827;
     --topbar-h: 54px;
+    --hour-h: 64px;
   }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -31,13 +32,16 @@
   /* TOP BAR */
   #topbar {
     background: var(--topbar);
-    height: var(--topbar-h);
-    padding: 0 16px 0 16px;
+    min-height: var(--topbar-h);
+    padding: 10px 16px;
+    padding-top: max(10px, env(safe-area-inset-top));
     padding-left: max(16px, env(safe-area-inset-left));
     padding-right: max(16px, env(safe-area-inset-right));
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: wrap;
+    row-gap: 6px;
     position: sticky;
     top: 0;
     z-index: 100;
@@ -233,7 +237,7 @@
   .add-task-placeholder { width: 20px; height: 20px; border-radius: 4px; border: 2px solid #D1D5DB; flex-shrink: 0; }
 
   /* DAY VIEW */
-  #day-selector { display: flex; gap: 6px; margin-bottom: 18px; flex-wrap: wrap; }
+  #day-selector { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
   .day-filter-btn {
     padding: 7px 14px; font-size: 13px; font-weight: 600; border-radius: 8px;
     border: 2px solid var(--border); background: var(--card); color: #374151;
@@ -241,20 +245,89 @@
     -webkit-appearance: none; appearance: none;
   }
   .day-filter-btn.active { border-color: var(--topbar); background: var(--topbar); color: #fff; }
+
+  /* Quick add (By Day view) */
+  #day-quick-add {
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px; margin-bottom: 16px;
+  }
+  #day-quick-add select, #day-quick-add .qa-text-input {
+    font-family: inherit; font-size: 12.5px; border: 1.5px solid var(--border-mid, #D1D5DB);
+    border-radius: 6px; padding: 6px 8px; background: #fff; color: var(--text); outline: none;
+  }
+  #day-quick-add select { max-width: 40%; }
+  .qa-text-input { flex: 1; min-width: 120px; }
+  .qa-submit {
+    flex-shrink: 0; width: 30px; height: 30px; border-radius: 6px; border: none;
+    background: var(--topbar); color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; line-height: 1;
+  }
+
+  .day-section-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 6px;
+  }
+  #day-unscheduled-wrap { margin-bottom: 18px; }
+
   .day-task-item {
-    display: flex; align-items: flex-start; gap: 10px;
+    display: flex; align-items: flex-start; gap: 8px;
     padding: 10px 14px; background: var(--card);
     border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px;
     border-left: 4px solid var(--goal-color, #2563EB);
   }
+  .day-task-item.dragging { box-shadow: 0 10px 28px rgba(0,0,0,0.2); }
   .day-task-goal-label { font-size: 11px; font-weight: 600; margin-top: 3px; }
   .day-task-unschedule {
     background: none; border: none; cursor: pointer; color: var(--subtle);
     font-size: 12px; padding: 2px 4px; flex-shrink: 0; align-self: center;
   }
-  .empty-day {
-    text-align: center; color: var(--subtle); font-size: 14px;
-    padding: 48px 0; border: 2px dashed var(--border); border-radius: 12px;
+  .empty-day-small {
+    text-align: center; color: var(--subtle); font-size: 12.5px;
+    padding: 14px 0; border: 2px dashed var(--border); border-radius: 10px;
+  }
+
+  /* Hour calendar grid */
+  #day-calendar {
+    position: relative; overflow-y: auto; overflow-x: hidden;
+    height: min(560px, 60vh);
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  }
+  .hour-row {
+    height: var(--hour-h); box-sizing: border-box; border-top: 1px solid var(--border);
+    position: relative;
+  }
+  .hour-row:first-child { border-top: none; }
+  .hour-label {
+    position: absolute; left: 8px; top: -8px; font-size: 11.5px; color: var(--subtle);
+    background: var(--card); padding-right: 4px; pointer-events: none;
+  }
+  .cal-chip {
+    position: absolute; left: 66px; right: 8px; height: 46px;
+    display: flex; align-items: center; gap: 4px;
+    background: var(--card); border: 1px solid var(--border); border-left: 4px solid var(--goal-color, #2563EB);
+    border-radius: 6px; padding: 0 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .cal-chip.dragging { box-shadow: 0 10px 28px rgba(0,0,0,0.22); z-index: 1000; }
+  .cal-chip-content { flex: 1; min-width: 0; }
+  .cal-chip-time { font-size: 10px; color: var(--subtle); font-weight: 600; line-height: 1.2; }
+  .cal-chip-text {
+    font-size: 12.5px; line-height: 1.25; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; cursor: text;
+  }
+  .cal-chip-text.done { color: var(--subtle); text-decoration: line-through; }
+  .cal-chip-remove {
+    flex-shrink: 0; background: none; border: none; cursor: pointer;
+    color: var(--subtle); opacity: 0.5; padding: 3px; display: flex; align-items: center;
+  }
+  .cal-chip-remove:hover { opacity: 1; }
+  .now-line {
+    position: absolute; left: 66px; right: 8px; height: 0;
+    border-top: 2px solid #EF4444; pointer-events: none;
+  }
+  .now-dot {
+    position: absolute; left: -5px; top: -4px; width: 8px; height: 8px;
+    border-radius: 50%; background: #EF4444;
   }
 
   /* CHECK ICON */
@@ -300,7 +373,12 @@
   </div>
   <div id="day-view" style="display:none">
     <div id="day-selector"></div>
-    <div id="day-tasks"></div>
+    <div id="day-quick-add"></div>
+    <div id="day-unscheduled-wrap">
+      <div class="day-section-label">Unscheduled</div>
+      <div id="day-unscheduled-list"></div>
+    </div>
+    <div id="day-calendar"></div>
   </div>
 </div>
 
@@ -319,13 +397,13 @@ const INITIAL_GOALS = [
     tracking: emptyTracking(),
     categories:[
       { id:'c1', name:'Bills', tasks:[
-        {id:'t1',text:'Call AT&T and Xfinity for phone bill',done:false,days:[]},
-        {id:'t2',text:'Submit claims to KP',done:false,days:[]}
+        {id:'t1',text:'Call AT&T and Xfinity for phone bill',done:false,days:[],time:null},
+        {id:'t2',text:'Submit claims to KP',done:false,days:[],time:null}
       ]},
       { id:'c2', name:'Bachelor Party', tasks:[
-        {id:'t3',text:'Review house options for Cartagena',done:false,days:[]},
-        {id:'t4',text:'Book Cartagena flight',done:false,days:[]},
-        {id:'t5',text:'Buy suit',done:false,days:[]}
+        {id:'t3',text:'Review house options for Cartagena',done:false,days:[],time:null},
+        {id:'t4',text:'Book Cartagena flight',done:false,days:[],time:null},
+        {id:'t5',text:'Buy suit',done:false,days:[],time:null}
       ]}
     ]
   },
@@ -335,12 +413,12 @@ const INITIAL_GOALS = [
     tracking: emptyTracking(),
     categories:[
       { id:'c3', name:'Health', tasks:[
-        {id:'t6',text:'Gym: back, arms, abs',done:false,days:[]},
-        {id:'t7',text:'Restart tracking macros',done:false,days:[]}
+        {id:'t6',text:'Gym: back, arms, abs',done:false,days:[],time:null},
+        {id:'t7',text:'Restart tracking macros',done:false,days:[],time:null}
       ]},
       { id:'c4', name:'Study', tasks:[
-        {id:'t8',text:'Read first Seneca essay',done:false,days:[]},
-        {id:'t9',text:'Schedule Spanish class',done:false,days:[]}
+        {id:'t8',text:'Read first Seneca essay',done:false,days:[],time:null},
+        {id:'t9',text:'Schedule Spanish class',done:false,days:[],time:null}
       ]}
     ]
   },
@@ -350,18 +428,18 @@ const INITIAL_GOALS = [
     tracking: emptyTracking(),
     categories:[
       { id:'c5', name:'Job Applications', tasks:[
-        {id:'t10',text:'Apply to National Security Director, Microsoft',done:false,days:[]},
-        {id:'t11',text:'Research other job search platforms; use AI',done:false,days:[]}
+        {id:'t10',text:'Apply to National Security Director, Microsoft',done:false,days:[],time:null},
+        {id:'t11',text:'Research other job search platforms; use AI',done:false,days:[],time:null}
       ]},
       { id:'c6', name:'Professional Development', tasks:[
-        {id:'t12',text:'Apply to Bucerius Global Governance Program, Aug 7–17, Hamburg',done:true,days:[]},
-        {id:'t13',text:'Register for Atlantic-Brücke Young Leaders Conference, Aug 8–14, Denver',done:true,days:[]},
-        {id:'t14',text:'Draft leave request for Madeline review',done:false,days:[]}
+        {id:'t12',text:'Apply to Bucerius Global Governance Program, Aug 7–17, Hamburg',done:true,days:[],time:null},
+        {id:'t13',text:'Register for Atlantic-Brücke Young Leaders Conference, Aug 8–14, Denver',done:true,days:[],time:null},
+        {id:'t14',text:'Draft leave request for Madeline review',done:false,days:[],time:null}
       ]},
       { id:'c7', name:'USNATO TDY', tasks:[
-        {id:'t15',text:'Email Leigh Ann',done:true,days:[]},
-        {id:'t16',text:'Email Alton',done:true,days:[]},
-        {id:'t17',text:'Meet with Dot',done:false,days:[]}
+        {id:'t15',text:'Email Leigh Ann',done:true,days:[],time:null},
+        {id:'t16',text:'Email Alton',done:true,days:[],time:null},
+        {id:'t17',text:'Meet with Dot',done:false,days:[],time:null}
       ]}
     ]
   },
@@ -371,16 +449,16 @@ const INITIAL_GOALS = [
     tracking: emptyTracking(),
     categories:[
       { id:'c8', name:'Therapy', tasks:[
-        {id:'t18',text:'Complete relationship vision worksheet',done:false,days:[]},
-        {id:'t19',text:'Call KP for quote for Saturday session',done:false,days:[]}
+        {id:'t18',text:'Complete relationship vision worksheet',done:false,days:[],time:null},
+        {id:'t19',text:'Call KP for quote for Saturday session',done:false,days:[],time:null}
       ]},
       { id:'c9', name:'Apartment Move-In', tasks:[
-        {id:'t20',text:'Ask to use Bene car for move-in',done:false,days:[]}
+        {id:'t20',text:'Ask to use Bene car for move-in',done:false,days:[],time:null}
       ]},
       { id:'c10', name:'Life Planning', tasks:[
-        {id:'t21',text:'Help create job tracker with Borja on Claude',done:false,days:[]},
-        {id:'t22',text:'Plan summer leave with Borja',done:false,days:[]},
-        {id:'t23',text:'Create budget with Borja',done:false,days:[]}
+        {id:'t21',text:'Help create job tracker with Borja on Claude',done:false,days:[],time:null},
+        {id:'t22',text:'Plan summer leave with Borja',done:false,days:[],time:null},
+        {id:'t23',text:'Create budget with Borja',done:false,days:[],time:null}
       ]}
     ]
   }
@@ -408,6 +486,7 @@ function migrateTask(t) {
     t.days = t.day ? [t.day] : [];
   }
   delete t.day;
+  if (typeof t.time === 'undefined') t.time = null;
   return t;
 }
 
@@ -552,7 +631,17 @@ function removeTask(taskId) {
 function addTask(goalId, sectionId, text) {
   const section = getSection(goalId, sectionId);
   if (!section) return;
-  section.tasks.push({id:uid('t'), text, done:false, days:[]});
+  section.tasks.push({id:uid('t'), text, done:false, days:[], time:null});
+  scheduleSave();
+  render();
+}
+
+// Used by the By Day view's quick-add: same as addTask, but also schedules
+// the new task onto the given day so it shows up immediately in that view.
+function addTaskForDay(goalId, sectionId, text, day) {
+  const section = getSection(goalId, sectionId);
+  if (!section) return;
+  section.tasks.push({id:uid('t'), text, done:false, days:[day], time:null});
   scheduleSave();
   render();
 }
@@ -580,6 +669,17 @@ function unscheduleTaskDay(taskId, day) {
   if (!t) return;
   const idx = t.days.indexOf(day);
   if (idx >= 0) t.days.splice(idx, 1);
+  scheduleSave();
+  render();
+}
+
+// Sets (or clears, with timeStr === null) a task's time-of-day on the By
+// Day calendar. A task with no time sits in the "Unscheduled" strip above
+// the hour grid instead of on it.
+function setTaskTime(taskId, timeStr) {
+  const t = findTask(taskId);
+  if (!t) return;
+  t.time = timeStr;
   scheduleSave();
   render();
 }
@@ -657,7 +757,7 @@ function setView(v) {
   document.querySelectorAll('.view-btn').forEach((b,i) => {
     b.classList.toggle('active', (i===0&&v==='goals')||(i===1&&v==='day'));
   });
-  if (v==='day') renderDayView();
+  if (v==='day') { renderDayView(); scrollCalendarToDefault(); }
 }
 
 // ── Render helpers ─────────────────────────────────────────────────────────
@@ -677,6 +777,38 @@ function removeSVG() {
   return `<svg width="14" height="14" viewBox="0 0 14 14" fill="none">
     <path d="M2 2L12 12M12 2L2 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
   </svg>`;
+}
+
+// ── Time-of-day helpers (By Day calendar) ─────────────────────────────────
+const HOUR_H = 64; // px per hour, must match --hour-h
+
+function timeToMinutes(timeStr) {
+  if (!timeStr) return null;
+  const [h, m] = timeStr.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function minutesToTime(mins) {
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+
+function formatTime12(timeStr) {
+  const mins = timeToMinutes(timeStr);
+  if (mins == null) return '';
+  let h = Math.floor(mins / 60);
+  const m = mins % 60;
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12; if (h === 0) h = 12;
+  return `${h}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+function hourLabel(h) {
+  if (h === 0) return 'Midnight';
+  if (h === 12) return 'Noon';
+  const ampm = h < 12 ? 'AM' : 'PM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12} ${ampm}`;
 }
 
 function renderDayPicker(task, goalColor) {
@@ -869,41 +1001,202 @@ function renderGoalCard(goal) {
   </div>`;
 }
 
+// ── By Day: quick add ────────────────────────────────────────────────────
+let quickAddGoalId = null;
+let quickAddSectionId = null;
+
+function sectionOptionsFor(goalId) {
+  const g = goals.find(g => g.id === goalId);
+  if (!g) return [];
+  return [...g.categories.map(c => ({ id: c.id, name: c.name })), { id: 'tracking', name: g.tracking.name }];
+}
+
+function ensureQuickAddDefaults() {
+  if (!goals.find(g => g.id === quickAddGoalId)) quickAddGoalId = goals[0] ? goals[0].id : null;
+  const validSections = sectionOptionsFor(quickAddGoalId).map(o => o.id);
+  if (!validSections.includes(quickAddSectionId)) quickAddSectionId = validSections[0] || null;
+}
+
+function renderQuickAdd() {
+  ensureQuickAddDefaults();
+  const sectionOpts = sectionOptionsFor(quickAddGoalId);
+  return `
+    <select id="qa-goal" onchange="onQuickAddGoalChange(this.value)" aria-label="Goal">
+      ${goals.map(g => `<option value="${g.id}"${g.id===quickAddGoalId?' selected':''}>${escHtml(g.title)}</option>`).join('')}
+    </select>
+    <select id="qa-section" onchange="onQuickAddSectionChange(this.value)" aria-label="Subsection">
+      ${sectionOpts.map(o => `<option value="${o.id}"${o.id===quickAddSectionId?' selected':''}>${escHtml(o.name)}</option>`).join('')}
+    </select>
+    <input id="qa-text" class="qa-text-input" placeholder="Add a to-do for ${selectedDay}…" autocomplete="off" onkeydown="onQuickAddKeydown(event)">
+    <button class="qa-submit" onclick="submitQuickAdd()" aria-label="Add to-do">+</button>
+  `;
+}
+
+function onQuickAddGoalChange(goalId) {
+  quickAddGoalId = goalId;
+  quickAddSectionId = null;
+  renderDayView();
+  const input = document.getElementById('qa-text');
+  if (input) input.focus();
+}
+
+function onQuickAddSectionChange(sectionId) {
+  quickAddSectionId = sectionId;
+}
+
+function onQuickAddKeydown(e) {
+  if (e.key === 'Enter') { e.preventDefault(); submitQuickAdd(); }
+}
+
+function submitQuickAdd() {
+  const input = document.getElementById('qa-text');
+  const text = input.value.trim();
+  if (!text || !quickAddGoalId || !quickAddSectionId) return;
+  addTaskForDay(quickAddGoalId, quickAddSectionId, text, selectedDay);
+  const freshInput = document.getElementById('qa-text');
+  if (freshInput) freshInput.focus();
+}
+
+// ── By Day: hour calendar ──────────────────────────────────────────────
+function renderCalendarGrid(timedItems) {
+  const hourRows = Array.from({ length: 24 }, (_, h) =>
+    `<div class="hour-row"><span class="hour-label">${hourLabel(h)}</span></div>`
+  ).join('');
+
+  const chips = timedItems.map(t => {
+    const top = timeToMinutes(t.time) / 60 * HOUR_H;
+    return `<div class="cal-chip" data-id="${t.id}" style="top:${top}px;--goal-color:${t.goalColor};border-left-color:${t.goalColor}">
+      <button class="drag-handle cal-drag-handle" aria-label="Drag to reschedule">⠿</button>
+      <button class="task-check${t.done?' done':''}" style="--goal-color:${t.goalColor}"
+        onclick="toggleTask('${t.id}')">${checkSVG()}</button>
+      <div class="cal-chip-content">
+        <div class="cal-chip-time">${formatTime12(t.time)} · ${escHtml(t.goalTitle)}</div>
+        <div class="cal-chip-text${t.done?' done':''}" ondblclick="activateEditTask(this,'${t.id}')">${escHtml(t.text)}</div>
+      </div>
+      <button class="cal-chip-remove" onclick="unscheduleTaskDay('${t.id}','${selectedDay}')" aria-label="Remove from this day">${removeSVG()}</button>
+    </div>`;
+  }).join('');
+
+  let nowLine = '';
+  const todayName = DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
+  if (selectedDay === todayName) {
+    const now = new Date();
+    const top = (now.getHours() * 60 + now.getMinutes()) / 60 * HOUR_H;
+    nowLine = `<div class="now-line" style="top:${top}px"><span class="now-dot"></span></div>`;
+  }
+
+  return `<div class="hour-rows">${hourRows}</div>${chips}${nowLine}`;
+}
+
+function scrollCalendarToDefault() {
+  const el = document.getElementById('day-calendar');
+  if (el) el.scrollTop = 7 * HOUR_H;
+}
+
+// Drag a day-task-item (from the Unscheduled strip) or a cal-chip (already
+// on the grid) to set/change its time. Dropping outside the hour grid
+// clears the time, sending it back to Unscheduled.
+function startDayDrag(startEvent, chip, taskId) {
+  startEvent.preventDefault();
+  const pointerId = startEvent.pointerId;
+  const rect = chip.getBoundingClientRect();
+  const offsetX = startEvent.clientX - rect.left;
+  const offsetY = startEvent.clientY - rect.top;
+  const grid = document.getElementById('day-calendar');
+
+  chip.classList.add('dragging');
+  chip.style.width = rect.width + 'px';
+  chip.style.position = 'fixed';
+  chip.style.left = rect.left + 'px';
+  chip.style.top = rect.top + 'px';
+  chip.style.zIndex = '1000';
+  chip.style.pointerEvents = 'none';
+  document.body.appendChild(chip);
+  try { chip.setPointerCapture(pointerId); } catch(e) {}
+
+  function onMove(e) {
+    if (e.pointerId !== pointerId) return;
+    chip.style.left = (e.clientX - offsetX) + 'px';
+    chip.style.top = (e.clientY - offsetY) + 'px';
+  }
+
+  function onUp(e) {
+    if (e.pointerId !== pointerId) return;
+    document.removeEventListener('pointermove', onMove);
+    document.removeEventListener('pointerup', onUp);
+    document.removeEventListener('pointercancel', onUp);
+
+    const gr = grid.getBoundingClientRect();
+    const overGrid = e.clientX >= gr.left && e.clientX <= gr.right && e.clientY >= gr.top && e.clientY <= gr.bottom;
+    // render() rebuilds #day-calendar and #day-unscheduled-list with fresh
+    // nodes from scratch, so the floating chip (appended to <body> above)
+    // must be removed here — otherwise it's left behind as an orphaned,
+    // still position:fixed leftover distinct from its freshly-rendered
+    // replacement.
+    chip.remove();
+    if (overGrid) {
+      const relY = (e.clientY - gr.top) + grid.scrollTop;
+      let minutes = Math.round((relY / HOUR_H * 60) / 15) * 15;
+      minutes = Math.max(0, Math.min(23 * 60 + 45, minutes));
+      setTaskTime(taskId, minutesToTime(minutes));
+    } else {
+      setTaskTime(taskId, null);
+    }
+  }
+
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
+  document.addEventListener('pointercancel', onUp);
+}
+
 function renderDayView() {
-  // Day selector
   const sel = document.getElementById('day-selector');
   sel.innerHTML = DAYS.map(d =>
     `<button class="day-filter-btn${d===selectedDay?' active':''}" onclick="selectDay('${d}')">${d}</button>`
   ).join('');
 
-  // Filtered tasks
-  const container = document.getElementById('day-tasks');
+  document.getElementById('day-quick-add').innerHTML = renderQuickAdd();
+
   const items = [];
   goals.forEach(g => sectionsOf(g).forEach(c => c.tasks.forEach(t => {
     if (t.days.includes(selectedDay)) items.push({...t, goalTitle:g.title, goalColor:g.color, goalId:g.id});
   })));
+  const untimed = items.filter(t => !t.time);
+  const timed = items.filter(t => t.time);
 
-  if (items.length===0) {
-    container.innerHTML = `<div class="empty-day">No tasks scheduled for ${selectedDay}.</div>`;
-    return;
+  const unscheduledEl = document.getElementById('day-unscheduled-list');
+  if (untimed.length === 0) {
+    unscheduledEl.innerHTML = `<div class="empty-day-small">Nothing unscheduled for ${selectedDay}.</div>`;
+  } else {
+    unscheduledEl.innerHTML = untimed.map(t => `
+      <div class="day-task-item" data-id="${t.id}" style="--goal-color:${t.goalColor};border-left-color:${t.goalColor}">
+        <button class="drag-handle day-drag-handle" aria-label="Drag onto the calendar to set a time">⠿</button>
+        <button class="task-check${t.done?' done':''}" style="--goal-color:${t.goalColor};flex-shrink:0;margin-top:2px"
+          onclick="toggleTask('${t.id}')">${checkSVG()}</button>
+        <div style="flex:1;min-width:0">
+          <div class="task-text${t.done?' done':''}" style="margin-bottom:2px" ondblclick="activateEditTask(this,'${t.id}')">${escHtml(t.text)}</div>
+          <div class="day-task-goal-label" style="color:${t.goalColor}">${escHtml(t.goalTitle)}</div>
+        </div>
+        <button class="day-task-unschedule" onclick="unscheduleTaskDay('${t.id}','${selectedDay}')" title="Remove from this day">✕</button>
+      </div>
+    `).join('');
   }
 
-  container.innerHTML = items.map(t => `
-    <div class="day-task-item" style="--goal-color:${t.goalColor};border-left-color:${t.goalColor}">
-      <button class="task-check${t.done?' done':''}" style="--goal-color:${t.goalColor};flex-shrink:0;margin-top:2px"
-        onclick="toggleTask('${t.id}')">${checkSVG()}</button>
-      <div style="flex:1;min-width:0">
-        <div class="task-text${t.done?' done':''}" style="margin-bottom:2px">${escHtml(t.text)}</div>
-        <div class="day-task-goal-label" style="color:${t.goalColor}">${escHtml(t.goalTitle)}</div>
-      </div>
-      <button class="day-task-unschedule" onclick="unscheduleTaskDay('${t.id}','${selectedDay}')" title="Remove from this day">✕</button>
-    </div>
-  `).join('');
+  document.getElementById('day-calendar').innerHTML = renderCalendarGrid(timed);
 }
+
+document.addEventListener('pointerdown', (e) => {
+  const dayHandle = e.target.closest('.day-drag-handle, .cal-drag-handle');
+  if (dayHandle) {
+    const chip = dayHandle.closest('.day-task-item, .cal-chip');
+    if (chip) startDayDrag(e, chip, chip.dataset.id);
+  }
+});
 
 function selectDay(d) {
   selectedDay = d;
   renderDayView();
+  scrollCalendarToDefault();
 }
 
 function escHtml(s) {
