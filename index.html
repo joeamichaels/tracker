@@ -48,7 +48,6 @@
   }
   #topbar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   #app-title { font-size: 16px; font-weight: 800; color: #fff; letter-spacing: -0.02em; }
-  #progress-label { font-size: 11px; color: var(--subtle); font-weight: 500; }
   #save-status { font-size: 10px; font-weight: 600; display: flex; align-items: center; gap: 3px; }
   #save-status.saved { color: #10B981; }
   #save-status.saving { color: #F59E0B; }
@@ -399,7 +398,6 @@
 <div id="topbar">
   <div id="topbar-left">
     <span id="app-title">To Do List</span>
-    <span id="progress-label">0/0 done</span>
     <span id="save-status" class="saved">
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Saved
@@ -592,12 +590,6 @@ function getSection(goalId, sectionId) {
   if (!g) return null;
   if (sectionId === 'tracking') return g.tracking;
   return g.categories.find(c => c.id === sectionId) || null;
-}
-
-function allTasks() { return goals.flatMap(g => g.categories.flatMap(c => c.tasks)); }
-function updateProgress() {
-  const all = allTasks();
-  document.getElementById('progress-label').textContent = `${all.filter(t=>t.done).length}/${all.length} done`;
 }
 
 function findTask(taskId) {
@@ -1541,7 +1533,6 @@ function render() {
   const grid = document.getElementById('goals-grid');
   grid.innerHTML = goals.map(renderGoalCard).join('');
   document.getElementById('add-goal-wrap').innerHTML = renderAddGoalCard();
-  updateProgress();
   if (currentView==='day') renderDayView();
 }
 
