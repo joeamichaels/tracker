@@ -48,7 +48,6 @@
   }
   #topbar-left { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   #app-title { font-size: 16px; font-weight: 800; color: #fff; letter-spacing: -0.02em; }
-  #progress-label { font-size: 11px; color: var(--subtle); font-weight: 500; }
   #save-status { font-size: 10px; font-weight: 600; display: flex; align-items: center; gap: 3px; }
   #save-status.saved { color: #10B981; }
   #save-status.saving { color: #F59E0B; }
@@ -85,18 +84,47 @@
     overflow: hidden;
     box-shadow: 0 1px 4px rgba(0,0,0,0.06);
   }
+  .goal-card.dragging { box-shadow: 0 14px 32px rgba(0,0,0,0.2); }
   .goal-header {
-    padding: 14px 16px 12px;
+    padding: 12px 12px 12px 6px;
     border-bottom: 1px solid #F3F4F6;
   }
-  .goal-header-row { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+  .goal-header-row { display: flex; align-items: center; gap: 4px; }
+  .goal-header-text { flex: 1; min-width: 0; }
+  .goal-header-actions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+  .goal-edit, .goal-remove {
+    flex-shrink: 0; background: none; border: none; cursor: pointer;
+    color: var(--subtle); opacity: 0.45; padding: 4px; display: flex; align-items: center;
+  }
+  .goal-edit:hover, .goal-remove:hover { opacity: 1; }
   .goal-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; display: block; margin-bottom: 2px; }
-  .goal-title { font-size: 15px; font-weight: 700; line-height: 1.2; }
+  .goal-title { font-size: 15px; font-weight: 700; line-height: 1.2; cursor: text; }
   .goal-subtitle { font-size: 12px; color: var(--muted); margin-top: 1px; }
-  .goal-pct { font-size: 22px; font-weight: 800; line-height: 1; text-align: right; flex-shrink: 0; margin-left: 10px; }
-  .goal-pct-sub { font-size: 10px; color: var(--subtle); margin-top: 2px; text-align: right; }
-  .progress-bar-track { height: 4px; background: #E5E7EB; border-radius: 2px; overflow: hidden; }
-  .progress-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s ease; }
+  .goal-edit-form { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .goal-title-input {
+    font-size: 14px; font-weight: 700; font-family: inherit; color: var(--text);
+    border: 1.5px solid var(--border-mid, #D1D5DB); border-radius: 5px;
+    padding: 3px 6px; outline: none; background: #fff; width: 100%;
+  }
+  .goal-subtitle-input {
+    font-size: 12px; font-family: inherit; color: var(--text);
+    border: 1.5px solid var(--border-mid, #D1D5DB); border-radius: 5px;
+    padding: 3px 6px; outline: none; background: #fff; width: 100%;
+  }
+  .add-goal-card {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    width: 100%; padding: 14px; margin-top: 16px;
+    background: transparent; border: 2px dashed var(--border); border-radius: 12px;
+    color: var(--subtle); font-weight: 600; font-size: 13px; font-family: inherit; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .add-goal-card:hover { color: var(--text); border-color: var(--border-mid, #D1D5DB); }
+  .add-goal-form { margin-top: 16px; }
+  .add-goal-input {
+    width: 100%; font-size: 13px; font-family: inherit; color: var(--text);
+    border: 1.5px solid var(--border-mid, #D1D5DB); border-radius: 8px;
+    padding: 10px 12px; outline: none; background: var(--card);
+  }
 
   /* GOAL BODY */
   .goal-body { padding: 10px 6px 6px; }
@@ -370,7 +398,6 @@
 <div id="topbar">
   <div id="topbar-left">
     <span id="app-title">To Do List</span>
-    <span id="progress-label">0/0 done</span>
     <span id="save-status" class="saved">
       <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Saved
@@ -385,6 +412,7 @@
 <div id="content">
   <div id="goals-view">
     <div id="goals-grid"></div>
+    <div id="add-goal-wrap"></div>
   </div>
   <div id="day-view" style="display:none">
     <div id="day-selector"></div>
@@ -562,12 +590,6 @@ function getSection(goalId, sectionId) {
   if (!g) return null;
   if (sectionId === 'tracking') return g.tracking;
   return g.categories.find(c => c.id === sectionId) || null;
-}
-
-function allTasks() { return goals.flatMap(g => g.categories.flatMap(c => c.tasks)); }
-function updateProgress() {
-  const all = allTasks();
-  document.getElementById('progress-label').textContent = `${all.filter(t=>t.done).length}/${all.length} done`;
 }
 
 function findTask(taskId) {
@@ -999,30 +1021,22 @@ function renderTrackingBlock(goal) {
   </div>`;
 }
 
-function renderGoalCard(goal) {
-  // Tracking is a long-term backlog, not this cycle's push, so it's kept
-  // out of the completion percentage on purpose.
-  const tasks = goal.categories.flatMap(c=>c.tasks);
-  const done = tasks.filter(t=>t.done).length;
-  const pct = tasks.length===0 ? 0 : Math.round(done/tasks.length*100);
-
+function renderGoalCard(goal, index) {
   const catsHtml = goal.categories.map(cat => renderCategoryBlock(goal, cat)).join('');
 
-  return `<div class="goal-card" data-goal-id="${goal.id}">
+  return `<div class="goal-card" data-goal-id="${goal.id}" data-id="${goal.id}">
     <div class="goal-header" style="background:${goal.accent}">
       <div class="goal-header-row">
-        <div>
-          <span class="goal-label" style="color:${goal.color}">${escHtml(goal.label)}</span>
-          <div class="goal-title">${escHtml(goal.title)}</div>
+        <button class="drag-handle goal-drag-handle" aria-label="Reorder goal">⠿</button>
+        <div class="goal-header-text">
+          <span class="goal-label" style="color:${goal.color}">GOAL ${index + 1}</span>
+          <div class="goal-title" ondblclick="activateEditGoal(this,'${goal.id}')">${escHtml(goal.title)}</div>
           ${goal.subtitle ? `<div class="goal-subtitle">${escHtml(goal.subtitle)}</div>` : ''}
         </div>
-        <div>
-          <div class="goal-pct" style="color:${goal.color}">${pct}%</div>
-          <div class="goal-pct-sub">${done}/${tasks.length} done</div>
+        <div class="goal-header-actions">
+          <button class="goal-edit" onclick="activateEditGoal(this,'${goal.id}')" aria-label="Edit goal">${editSVG()}</button>
+          <button class="goal-remove" onclick="removeGoal('${goal.id}')" aria-label="Remove goal">${removeSVG()}</button>
         </div>
-      </div>
-      <div class="progress-bar-track">
-        <div class="progress-bar-fill" style="width:${pct}%;background:${goal.color}"></div>
       </div>
     </div>
     <div class="goal-body">
@@ -1031,6 +1045,130 @@ function renderGoalCard(goal) {
       ${renderTrackingBlock(goal)}
     </div>
   </div>`;
+}
+
+function activateEditGoal(el, goalId) {
+  const goal = goals.find(g => g.id === goalId);
+  if (!goal) return;
+  const headerRow = el.closest('.goal-header-row');
+  const textEl = headerRow.querySelector('.goal-header-text');
+  const wrapper = document.createElement('div');
+  wrapper.className = 'goal-edit-form';
+  wrapper.innerHTML = `
+    <input class="goal-title-input" placeholder="Goal title" autocomplete="off">
+    <input class="goal-subtitle-input" placeholder="Subtitle (optional)" autocomplete="off">
+  `;
+  textEl.replaceWith(wrapper);
+  const titleInput = wrapper.querySelector('.goal-title-input');
+  const subtitleInput = wrapper.querySelector('.goal-subtitle-input');
+  titleInput.value = goal.title;
+  subtitleInput.value = goal.subtitle || '';
+  titleInput.focus();
+  titleInput.select();
+
+  let settled = false;
+  const commit = () => {
+    if (settled) return;
+    settled = true;
+    const title = titleInput.value.trim();
+    const subtitle = subtitleInput.value.trim();
+    if (title) editGoalText(goalId, title, subtitle);
+    else render();
+  };
+  const cancel = () => {
+    if (settled) return;
+    settled = true;
+    render();
+  };
+  [titleInput, subtitleInput].forEach(inp => {
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(); }
+      else if (e.key === 'Escape') { e.preventDefault(); cancel(); }
+    });
+  });
+  // Committing on blur of each individual input would fire while tabbing
+  // from the title into the subtitle field, rebuilding the DOM mid-edit
+  // and stealing focus. Only commit once focus leaves the whole form.
+  wrapper.addEventListener('focusout', (e) => {
+    if (wrapper.contains(e.relatedTarget)) return;
+    setTimeout(commit, 150);
+  });
+}
+
+function editGoalText(goalId, title, subtitle) {
+  const g = goals.find(g => g.id === goalId);
+  if (!g) return;
+  g.title = title;
+  g.subtitle = subtitle;
+  scheduleSave();
+  render();
+}
+
+function removeGoal(goalId) {
+  const idx = goals.findIndex(g => g.id === goalId);
+  if (idx < 0) return;
+  const [removed] = goals.splice(idx, 1);
+  scheduleSave();
+  render();
+  const taskCount = removed.categories.reduce((n, c) => n + c.tasks.length, 0) + removed.tracking.tasks.length;
+  showUndoToast(`Removed goal "${removed.title}"${taskCount ? ` (${taskCount} task${taskCount===1?'':'s'})` : ''}`, () => {
+    goals.splice(Math.min(idx, goals.length), 0, removed);
+    scheduleSave();
+    render();
+  });
+}
+
+function reorderGoals(orderedIds) {
+  const byId = new Map(goals.map(g => [g.id, g]));
+  const reordered = orderedIds.map(id => byId.get(id)).filter(Boolean);
+  if (reordered.length === goals.length) {
+    goals = reordered;
+    scheduleSave();
+  }
+}
+
+const GOAL_PALETTE = [
+  { color:'#2563EB', accent:'#DBEAFE' },
+  { color:'#059669', accent:'#D1FAE5' },
+  { color:'#7C3AED', accent:'#EDE9FE' },
+  { color:'#DC2626', accent:'#FEE2E2' },
+  { color:'#D97706', accent:'#FEF3C7' },
+  { color:'#0891B2', accent:'#CFFAFE' },
+  { color:'#DB2777', accent:'#FCE7F3' }
+];
+
+function addGoal(title) {
+  const palette = GOAL_PALETTE[goals.length % GOAL_PALETTE.length];
+  goals.push({
+    id: uid('g'), title, subtitle: '', color: palette.color, accent: palette.accent,
+    tracking: emptyTracking(), categories: []
+  });
+  scheduleSave();
+  render();
+}
+
+function renderAddGoalCard() {
+  return `<button class="add-goal-card" onclick="activateAddGoal(this)">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1V15M1 8H15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    Add Goal
+  </button>`;
+}
+
+function activateAddGoal(btn) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'add-goal-form';
+  wrapper.innerHTML = `<input class="add-goal-input" placeholder="New goal title…" autocomplete="off">`;
+  btn.replaceWith(wrapper);
+  const input = wrapper.querySelector('input');
+  input.focus();
+  wireInlineEditor(input, {
+    onCommit: (value) => {
+      const text = value.trim();
+      if (text) addGoal(text);
+      else render();
+    },
+    onCancel: () => render()
+  });
 }
 
 // ── By Day: quick add ────────────────────────────────────────────────────
@@ -1377,6 +1515,16 @@ document.addEventListener('pointerdown', (e) => {
       dropZones: [{ hitEl: list, listEl: list }],
       onCommit: (_destContainer, ids) => reorderCategories(list.dataset.goalId, ids)
     });
+    return;
+  }
+  const goalHandle = e.target.closest('.goal-drag-handle');
+  if (goalHandle) {
+    const card = goalHandle.closest('.goal-card');
+    const grid = document.getElementById('goals-grid');
+    startDrag(e, card, grid, '.goal-card', {
+      dropZones: [{ hitEl: grid, listEl: grid }],
+      onCommit: (_destContainer, ids) => reorderGoals(ids)
+    });
   }
 });
 
@@ -1384,7 +1532,7 @@ document.addEventListener('pointerdown', (e) => {
 function render() {
   const grid = document.getElementById('goals-grid');
   grid.innerHTML = goals.map(renderGoalCard).join('');
-  updateProgress();
+  document.getElementById('add-goal-wrap').innerHTML = renderAddGoalCard();
   if (currentView==='day') renderDayView();
 }
 
